@@ -88,7 +88,7 @@ const contentAtom = atomWithObservable((get) => {
       subscriber.next(null)
     } else {
       async function fetchData() {
-        const response = await fetch('https://tweet-api-boe.aireview.tech/api/get_tweet_analysis?twitter_id=' + id, {
+        const response = await fetch('https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=' + id, {
           headers: {
             'Content-Type': 'application/json',
           },
