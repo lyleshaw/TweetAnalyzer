@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 )
 
@@ -495,5 +496,6 @@ func main() {
 	r := gin.Default()
 	r.Use(Cors())
 	r.GET("/api/get_tweet_analysis", getTweetAnalysis)
-	r.Run(":8085")
+	port := ":" + os.Getenv("PORT")
+	r.Run(port)
 }

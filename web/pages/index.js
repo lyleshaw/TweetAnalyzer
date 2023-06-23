@@ -81,7 +81,7 @@ export default function App() {
   const handleConfirm = async () => {
     setVisible(false);
     try {
-      const response = await fetch('/api/get_tweet_analysis?twitter_id=' + values.twitter_id, {
+      const response = await fetch('https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=' + values.twitter_id, {
         headers: {
           'Content-Type': 'application/json',
         },
