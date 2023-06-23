@@ -1,5 +1,5 @@
 import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled, Loading } from "@nextui-org/react";
-import { Suspense, useCallback, useState, useTransition } from 'react'
+import { useId, Suspense, useCallback, useState, useTransition } from 'react'
 import { atomWithObservable } from 'jotai/utils'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai/react'
 import { atom } from 'jotai/vanilla'
@@ -196,6 +196,7 @@ export default function App() {
             <Spacer y={0.5}/>
             <Input
               clearable
+              id={useId()}
               contentRightStyling={ false }
               aria-label='twitter id input'
               placeholder="L_x_x_x_x_x"
