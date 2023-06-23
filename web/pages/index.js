@@ -1,5 +1,5 @@
 import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled, Loading } from "@nextui-org/react";
-import { useState } from 'react';
+import { useId, useState } from 'react'
 
 export const SendButton = styled('button', {
   // reset button styles
@@ -196,7 +196,7 @@ export default function App() {
 
 
   return (
-    <Container sm display="flex" gap={7} 
+    <Container sm display="flex" gap={7}
       css={{
         marginTop: '4em'
       }}
@@ -238,8 +238,9 @@ export default function App() {
             <Spacer y={0.5}/>
             <Input
               clearable
-              contentRightStyling={ false }
-              label=""
+              contentRightStyling={false}
+              id={useId()}
+              aria-label="id"
               placeholder="L_x_x_x_x_x"
               labelLeft="ID"
               onChange={ handleChange('twitter_id') }
@@ -254,7 +255,7 @@ export default function App() {
               }
             />
             {
-              loading && 
+              loading &&
               <Text css={{
                 marginTop: '$4',
                 color: '$blue800',
