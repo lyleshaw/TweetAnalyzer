@@ -1,4 +1,4 @@
-import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled } from "@nextui-org/react";
+import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled, Loading } from "@nextui-org/react";
 import { useState } from 'react';
 
 export const SendButton = styled('button', {
@@ -74,12 +74,14 @@ export default function App() {
     twitter_id: '',
     content: '',
   })
+  const [loading, setLoading] = useState(false);
   const handleChange = (prop) => (event) => {
     setValues({ ...values, [prop]: event.target.value })
   }
 
   const handleConfirm = async () => {
     setVisible(false);
+    setLoading(true)
     try {
       const response = await fetch('https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=' + values.twitter_id, {
         headers: {
@@ -184,6 +186,7 @@ export default function App() {
           // }
         }
         done = readerDone
+        setLoading(false)
       }
     } catch (e) {
       console.error(e)
@@ -193,56 +196,72 @@ export default function App() {
 
 
   return (
-    <Container sm display="flex" direction="column" alignItems="center" gap={ 0 }>
-      <Spacer y={ 5 } />
-
-          <Text
-            transform="full-size-kana"
-            h1
-            size={ 50 }
-            css={ {
-              textGradient: "to right, #006E3A 8%, #166BB5 100%",
-              '@xsMax': {fontSize: '2.5rem'},
-            } }
-            weight="bold"
-          >
-            推文分析器
-          </Text>
-
-          <Text
-            transform="full-size-kana"
-            h1
-            size={ 37 }
-            css={ {
-              textGradient: "to right, #006E3A 8%, #166BB5 100%",
-              '@xsMax': {fontSize: '2rem'},
-            } }
-            weight="bold"
-          >
-            Tweet Analyzer
-          </Text>
-
-      <Spacer y={ 1 } />
-
-      <Card css={{maxWidth:'50rem'}}>
+    <Container sm display="flex" gap={7} 
+      css={{
+        marginTop: '4em'
+      }}
+    >
+      <Col css={{
+        textAlign: 'center'
+      }}>
+        <Text
+          transform="full-size-kana"
+          h1
+          size={50}
+          css={ {
+            textGradient: "to right, #006E3A 8%, #166BB5 100%",
+            '@xsMax': {fontSize: '2.5rem'},
+          } }
+          weight="bold"
+        >
+          推文分析器
+        </Text>
+        <Text
+          transform="full-size-kana"
+          h1
+          size={ 37 }
+          css={ {
+            textGradient: "to right, #006E3A 8%, #166BB5 100%",
+          } }
+          weight="bold"
+        >
+          Tweet Analyzer
+        </Text>
+      </Col>
+      <Spacer y={4} />
+      <Card gap={ 2 }>
         <Card.Body>
-          <Row justify="center" align="center">
+          <Col justify="center" align="center">
+            <Text css={{
+              color: '$accents7'
+            }}>请输入 Twitter ID [如 https://twitter.com/jack 即应输入 jack]</Text>
+            <Spacer y={0.5}/>
             <Input
               clearable
               contentRightStyling={ false }
-              label="请输入 Twitter ID [如 https://twitter.com/jack 即应输入 jack]"
+              label=""
               placeholder="L_x_x_x_x_x"
               labelLeft="ID"
               onChange={ handleChange('twitter_id') }
               value={ values.twitter_id }
               contentRight={
+                !loading ?
                 <SendButton onClick={ handler }>
                   <SendIcon />
                 </SendButton>
+                :
+                <Loading size="sm" css={{margin: '.5em'}} />
               }
             />
-          </Row>
-
+            {
+              loading && 
+              <Text css={{
+                marginTop: '$4',
+                color: '$blue800',
+                fontWeight: 'lighter'
+              }}>由于当前请求人数较多，可能需要等待一段时间~</Text>
+            }
+          </Col>
           <Modal
             closeButton
             animated={ false }
@@ -272,10 +291,9 @@ export default function App() {
               </Button>
             </Modal.Footer>
           </Modal>
-
           <Spacer y={ 1 } />
           <Row justify="center" align="center">
-            <Text h6 size={ 15 } color="black" css={ { m: 0 } }>
+            <Text h6 size={ 15 } color="black" css={ { m: 2 } }>
               { values.content }
             </Text>
           </Row>
