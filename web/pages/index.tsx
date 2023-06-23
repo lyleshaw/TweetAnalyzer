@@ -1,24 +1,24 @@
-import styled from "@emotion/styled";
+import styled from '@emotion/styled';
 import React, {
   Suspense,
   useCallback,
   useState,
   useTransition,
   useRef,
-} from "react";
-import { atomWithObservable } from "jotai/utils";
-import { useAtomValue, useSetAtom } from "jotai/react";
-import { atom } from "jotai/vanilla";
-import { Observable } from "rxjs";
-import Link from "next/link";
+} from 'react';
+import { atomWithObservable } from 'jotai/utils';
+import { useAtomValue, useSetAtom } from 'jotai/react';
+import { atom } from 'jotai/vanilla';
+import { Observable } from 'rxjs';
+import Link from 'next/link';
 
 export const SendButton = styled.button`
-  background: "transparent";
+  background: 'transparent';
   border: none;
   padding: 0;
 
   width: 20px;
-  margin: "0 10px";
+  margin: '0 10px';
   display: flex;
   justify-content: center;
 
@@ -26,7 +26,7 @@ export const SendButton = styled.button`
   cursor: pointer;
   transition: opacity 0.25s ease 0s, transform 0.25s ease 0s;
   svg {
-    size: "100%";
+    size: '100%';
     padding: 4px;
     transition: transform 0.25s ease 0s, opacity 200ms ease-in-out 50ms;
     box-shadow: 0 5px 20px -5px rgba(0, 0, 0, 0.1);
@@ -54,7 +54,7 @@ type SendIconProps = {
 };
 
 const SendIcon = ({
-  fill = "currentColor",
+  fill = 'currentColor',
   filled,
   size,
   height,
@@ -83,8 +83,11 @@ const SendIcon = ({
 
 const twitterIdAtom = atom<string | null>(null);
 
+const contentQueryRequestIdStateAtom = atom<number>(0);
+
 const contentAtom = atomWithObservable((get) => {
   const id = get(twitterIdAtom);
+  get(contentQueryRequestIdStateAtom);
   return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController();
     if (id === null) {
@@ -93,28 +96,28 @@ const contentAtom = atomWithObservable((get) => {
     } else {
       async function fetchData() {
         const response = await fetch(
-          "https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=" +
+          'https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=' +
             id,
           {
             headers: {
-              "Content-Type": "application/json",
+              'Content-Type': 'application/json',
             },
             signal: abortController.signal,
-            method: "GET",
+            method: 'GET',
           }
         );
         if (!response.ok) {
           const error = await response.json();
           console.error(error.error);
-          throw new Error("Request failed");
+          throw new Error('Request failed');
         }
         const data = response.body;
         if (!data) {
-          throw new Error("No data");
+          throw new Error('No data');
         }
 
         const reader = data.getReader();
-        const decoder = new TextDecoder("utf-8");
+        const decoder = new TextDecoder('utf-8');
         let done = false;
 
         while (!done) {
@@ -122,7 +125,7 @@ const contentAtom = atomWithObservable((get) => {
           if (value) {
             const char = decoder.decode(value);
 
-            if (char.startsWith("Data:")) {
+            if (char.startsWith('Data:')) {
               subscriber.next(char.substring(5));
             } else {
               subscriber.next(char);
@@ -132,7 +135,7 @@ const contentAtom = atomWithObservable((get) => {
         }
       }
 
-      fetchData().catch(subscriber.error);
+      fetchData().catch((err) => subscriber.error(err));
     }
 
     return () => {
@@ -147,8 +150,18 @@ const Content = () => {
 };
 
 export default function App() {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const modalRef = useRef<HTMLDialogElement>(null);
+  const [visible, setVisible] = useAtom(visibleAtom);
+
+  const handler = useCallback(() => setVisible(true), [setVisible]);
+  const closeHandler = useCallback(() => {
+    setVisible(false);
+    console.log('closed');
+  }, [setVisible]);
+  const [isLoading, startTransition] = useTransition();
+  const [twitterId, setTwitterId] = useAtom(twitterIdAtom);
+  const setRequestId = useSetAtom(contentQueryRequestIdStateAtom);
 
   const [isLoading, startTransition] = useTransition();
   const setTwitterId = useSetAtom(twitterIdAtom);
@@ -165,9 +178,15 @@ export default function App() {
 
   const handleConfirm = async () => {
     startTransition(() => {
-      if (input !== "") {
+      if (input !== '') {
         setTwitterId(input);
       }
+    });
+  };
+
+  const handleRetry = () => {
+    startTransition(() => {
+      setRequestId((id) => (id += 1));
     });
   };
 
@@ -199,6 +218,22 @@ export default function App() {
               className="input input-bordered join-item "
               placeholder="L_x_x_x_x_x"
               onChange={handleInputChange}
+              value={input}
+              contentRight={
+                !isLoading ? (
+                  input === twitterId ? (
+                    <SendButton onClick={handleRetry}>
+                      <GrPowerCycle />
+                    </SendButton>
+                  ) : (
+                    <SendButton onClick={handler}>
+                      <SendIcon />
+                    </SendButton>
+                  )
+                ) : (
+                  <Loading size="sm" css={{ margin: '.5em' }} />
+                )
+              }
             />
             <div className="btn join-item">
               {!isLoading ? (
