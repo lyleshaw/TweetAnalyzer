@@ -1,9 +1,10 @@
 import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled, Loading } from "@nextui-org/react";
-import { Suspense, useCallback, useState, useTransition } from 'react'
+import React, { Suspense, useCallback, useState, useTransition } from 'react'
 import { atomWithObservable } from 'jotai/utils'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai/react'
 import { atom } from 'jotai/vanilla'
 import { Observable } from 'rxjs'
+import { FormElement } from '@nextui-org/react/types/input/input-props'
 
 export const SendButton = styled('button', {
   // reset button styles
@@ -36,7 +37,17 @@ export const SendButton = styled('button', {
   }
 });
 
-export const SendIcon = ({
+type SendIconProps = {
+  fill?: string;
+  filled?: boolean;
+  size?: number;
+  height?: number;
+  width?: number;
+  label?: string;
+  className?: string;
+}
+
+const SendIcon = ({
   fill = "currentColor",
   filled,
   size,
@@ -44,8 +55,7 @@ export const SendIcon = ({
   width,
   label,
   className,
-  ...props
-}) => {
+}: SendIconProps) => {
   return (
     <svg
       data-name="Iconly/Curved/Lock"
@@ -54,7 +64,6 @@ export const SendIcon = ({
       height={ size || height || 24 }
       viewBox="0 0 24 24"
       className={ className }
-      { ...props }
     >
       <g transform="translate(2 2)">
         <path
@@ -66,13 +75,13 @@ export const SendIcon = ({
   );
 };
 
-const visibleAtom = atom(false)
+const visibleAtom = atom<boolean>(false)
 
-const twitterIdAtom = atom(null)
+const twitterIdAtom = atom<string | null>(null)
 
 const contentAtom = atomWithObservable((get) => {
   const id = get(twitterIdAtom)
-  return new Observable((subscriber) => {
+  return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController()
     if (id === null) {
       // no value
@@ -140,7 +149,7 @@ export default function App() {
   const setTwitterId = useSetAtom(twitterIdAtom)
 
   const [input, setInput] = useState('')
-  const handleInputChange = useCallback((event) => {
+  const handleInputChange = useCallback((event: React.ChangeEvent<FormElement>) => {
     setInput(event.target.value)
   }, [])
 
@@ -187,8 +196,10 @@ export default function App() {
         </Text>
       </Col>
       <Spacer y={4} />
-      <Card gap={ 2 }>
+      {/* @ts-expect-error */}
+      <Card gap={2}>
         <Card.Body>
+          {/* @ts-expect-error */}
           <Col justify="center" align="center">
             <Text css={{
               color: '$accents7'
@@ -204,11 +215,11 @@ export default function App() {
               value={input}
               contentRight={
                 !isLoading ?
-                <SendButton onClick={ handler }>
-                  <SendIcon />
-                </SendButton>
-                :
-                <Loading size="sm" css={{margin: '.5em'}} />
+                  <SendButton onClick={handler}>
+                    <SendIcon />
+                  </SendButton>
+                  :
+                  <Loading size="sm" css={{margin: '.5em'}} />
               }
             />
             {
@@ -238,7 +249,7 @@ export default function App() {
             </Modal.Header>
             <Modal.Body>
               <Text>你只需要点一下</Text>
-              <Link color href="https://twitter.com/L_x_x_x_x_x" target="_blank">
+              <Link href="https://twitter.com/L_x_x_x_x_x" target="_blank">
                 这里
               </Link>
               <Text>就好啦，非常感谢~</Text>
