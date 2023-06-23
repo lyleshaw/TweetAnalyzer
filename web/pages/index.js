@@ -193,49 +193,38 @@ export default function App() {
 
 
   return (
-    <Container sm display="flex" gap={ 7 }>
+    <Container sm display="flex" direction="column" alignItems="center" gap={ 0 }>
       <Spacer y={ 5 } />
-      <Row>
-        <Col></Col>
-        <Col>
+
           <Text
             transform="full-size-kana"
             h1
             size={ 50 }
             css={ {
               textGradient: "to right, #006E3A 8%, #166BB5 100%",
+              '@xsMax': {fontSize: '2.5rem'},
             } }
             weight="bold"
           >
             推文分析器
           </Text>
-        </Col>
-        <Col></Col>
-      </Row>
 
-      <Row>
-        <Col></Col>
-        <Col>
           <Text
             transform="full-size-kana"
             h1
             size={ 37 }
             css={ {
               textGradient: "to right, #006E3A 8%, #166BB5 100%",
+              '@xsMax': {fontSize: '2rem'},
             } }
             weight="bold"
           >
             Tweet Analyzer
           </Text>
-        </Col>
-        <Col></Col>
-      </Row>
 
       <Spacer y={ 1 } />
 
-
-
-      <Card gap={ 2 }>
+      <Card css={{maxWidth:'50rem'}}>
         <Card.Body>
           <Row justify="center" align="center">
             <Input
