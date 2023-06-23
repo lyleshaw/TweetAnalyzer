@@ -495,5 +495,5 @@ func main() {
 	r := gin.Default()
 	r.Use(Cors())
 	r.GET("/api/get_tweet_analysis", getTweetAnalysis)
-	r.Run()
+	r.Run(":8085")
 }
