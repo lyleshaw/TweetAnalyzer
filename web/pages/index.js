@@ -6,7 +6,6 @@ export const SendButton = styled('button', {
   background: 'transparent',
   border: 'none',
   padding: 0,
-  margin: 0,
   // styles
   width: '24px',
   margin: '0 10px',
@@ -196,7 +195,7 @@ export default function App() {
 
 
   return (
-    <Container sm display="flex" gap={7} 
+    <Container sm display="flex" gap={7}
       css={{
         marginTop: '4em'
       }}
@@ -254,7 +253,7 @@ export default function App() {
               }
             />
             {
-              loading && 
+              loading &&
               <Text css={{
                 marginTop: '$4',
                 color: '$blue800',
