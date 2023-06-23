@@ -527,6 +527,7 @@ func getTweetAnalysis(c *gin.Context) {
 		finalResp += response.Choices[0].Delta.Content
 
 		_, _ = fmt.Fprintf(w, "Data:\n%s\n\n", finalResp)
+		w.Flush()
 
 	}
 
