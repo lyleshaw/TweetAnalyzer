@@ -83,7 +83,7 @@ export default function App() {
     setVisible(false);
     setLoading(true)
     try {
-      const response = await fetch('https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=' + values.twitter_id, {
+      const response = await fetch('https://tweet-api-boe.aireview.tech/api/get_tweet_analysis?twitter_id=' + values.twitter_id, {
         headers: {
           'Content-Type': 'application/json',
         },

@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/madebywelch/anthropic-go v0.0.0-20230520225355-6955e1796152
+	github.com/sashabaranov/go-openai v1.11.3
 	github.com/spf13/viper v1.16.0
 	gopkg.in/antage/eventsource.v1 v1.0.0-20150318155416-803f4c5af225
 )

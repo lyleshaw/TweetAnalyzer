@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/madebywelch/anthropic-go/pkg/anthropic"
+	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/viper"
 	"gopkg.in/antage/eventsource.v1"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -337,6 +341,26 @@ func CompletionWithoutSessionWithStreamByClaude(client *anthropic.Client, prompt
 	return nil
 }
 
+func CompletionWithoutSessionWithStream(ctx context.Context, client *openai.Client, prompt string) (*openai.ChatCompletionStream, error) {
+	req := openai.ChatCompletionRequest{
+		Model:     openai.GPT3Dot5Turbo,
+		MaxTokens: 1000,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: prompt,
+			},
+		},
+		Stream: true,
+	}
+	stream, err := client.CreateChatCompletionStream(ctx, req)
+	if err != nil {
+		fmt.Printf("ChatCompletionStream error: %v\n", err)
+		return nil, err
+	}
+	return stream, nil
+}
+
 func GetClaudeClient() (*anthropic.Client, error) {
 	viper.SetConfigFile(".env")
 	_ = viper.ReadInConfig()
@@ -424,18 +448,29 @@ func getPromptFromTweetResponse(w gin.ResponseWriter, response TweetsResponse) s
 		_, _ = fmt.Fprintf(w, "第 %d 次抓取推文，本次抓取 %d 条\n\n", tryTimes, len(response.Tweets))
 		w.Flush()
 		fmt.Printf("第 %d 次抓取推文，本次抓取 %d 条\n\n", tryTimes, len(response.Tweets))
-		if tryTimes > 10 {
+		if tryTimes > 3 {
 			break
 		}
 	}
 
-	prompt += "\n\n请你根据以上信息，分析这个推主的性格特点，并给出你的分析依据(即所引用的推文原文)。要求写出 500 字以上的分析内容，必须从 10 点以上论述，并在最后从多个维度总结推主是什么样的人。"
+	prompt += "\n\n请你根据以上信息，分析这个推主的性格特点，并给出你的分析依据(即所引用的推文原文)。要求写出 100 字以上的分析内容，必须从 3 点以上论述，并在最后从多个维度总结推主是什么样的人。"
 
 	return prompt
 }
 
+func GetClient() (context.Context, *openai.Client, error) {
+	ctx := context.Background()
+	//config := openai.DefaultConfig(os.Getenv("API_KEY"))
+	//config.BaseURL = os.Getenv("BASE_URL")
+	config := openai.DefaultConfig("sb-4d2ed1a575db4bd4e1df1c377252a6ae")
+	config.BaseURL = "https://api.openai-sb.com/v1"
+	fmt.Printf("base url: %s\n", config.BaseURL)
+	return ctx, openai.NewClientWithConfig(config), nil
+}
+
 func getTweetAnalysis(c *gin.Context) {
 	w := c.Writer
+	ctx := context.Background()
 
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -458,17 +493,42 @@ func getTweetAnalysis(c *gin.Context) {
 	// get prompt from tweets
 	prompt := getPromptFromTweetResponse(w, *tweetResponse)
 
-	completion := ""
-	var callback anthropic.StreamCallback = func(resp *anthropic.CompletionResponse) error {
-		completion = resp.Completion
-		_, _ = fmt.Fprintf(w, "Data:\n%s\n\n", completion)
-		w.Flush()
-		fmt.Printf("%s\n\n", completion)
-		return nil
+	prompt = prompt[:3000]
+
+	_, _ = fmt.Fprintf(w, "\n\n请求 AI 中...一分钟还没有结果请重试 orz\n\n")
+	w.Flush()
+
+	//config := openai.DefaultConfig(os.Getenv("API_KEY"))
+	//config.BaseURL = os.Getenv("BASE_URL")
+	//fmt.Printf("config: %+v\n", config)
+	//clientOpenai := openai.NewClientWithConfig(config)
+
+	ctx, clientOpenai, err := GetClient()
+
+	// get response from openai
+	resp, err := CompletionWithoutSessionWithStream(ctx, clientOpenai, prompt)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"error": err.Error()})
+		return
 	}
 
-	client, _ := GetClaudeClient()
-	_ = CompletionWithoutSessionWithStreamByClaude(client, prompt, callback)
+	finalResp := ""
+	for {
+		response, err := resp.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+
+		if err != nil {
+			fmt.Printf("Stream error: %v\n", err)
+			return
+		}
+
+		finalResp += response.Choices[0].Delta.Content
+
+		_, _ = fmt.Fprintf(w, "Data:\n%s\n\n", finalResp)
+
+	}
 
 }
 
@@ -497,5 +557,6 @@ func main() {
 	r.Use(Cors())
 	r.GET("/api/get_tweet_analysis", getTweetAnalysis)
 	port := ":" + os.Getenv("PORT")
+	//port := ":8080"
 	r.Run(port)
 }
