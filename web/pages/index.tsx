@@ -181,7 +181,7 @@ export default function App() {
           } }
           weight="bold"
         >
-          推文分析器
+          推文分析器 OpenAI 版
         </Text>
         <Text
           transform="full-size-kana"
