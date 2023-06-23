@@ -1,12 +1,15 @@
 import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled, Loading } from "@nextui-org/react";
-import { useState } from 'react';
+import { Suspense, useCallback, useState, useTransition } from 'react'
+import { atomWithObservable } from 'jotai/utils'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai/react'
+import { atom } from 'jotai/vanilla'
+import { Observable } from 'rxjs'
 
 export const SendButton = styled('button', {
   // reset button styles
   background: 'transparent',
   border: 'none',
   padding: 0,
-  margin: 0,
   // styles
   width: '24px',
   margin: '0 10px',
@@ -63,140 +66,95 @@ export const SendIcon = ({
   );
 };
 
+const visibleAtom = atom(false)
+
+const twitterIdAtom = atom(null)
+
+const contentAtom = atomWithObservable((get) => {
+  const id = get(twitterIdAtom)
+  return new Observable((subscriber) => {
+    const abortController = new AbortController()
+    if (id === null) {
+      // no value
+      subscriber.next(null)
+    } else {
+      async function fetchData() {
+        const response = await fetch('https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=' + id, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: abortController.signal,
+          method: 'GET',
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          console.error(error.error)
+          throw new Error('Request failed')
+        }
+        const data = response.body
+        if (!data) {
+          throw new Error('No data')
+        }
+
+        const reader = data.getReader()
+        const decoder = new TextDecoder('utf-8')
+        let done = false
+
+        while (!done) {
+          const { value, done: readerDone } = await reader.read()
+          if (value) {
+            const char = decoder.decode(value)
+
+            if (char.startsWith('Data:')) {
+              subscriber.next(char.substring(5))
+            } else {
+              subscriber.next(char)
+            }
+          }
+          done = readerDone
+        }
+      }
+
+      fetchData().catch(subscriber.error)
+    }
+
+    return () => {
+      abortController.abort()
+    }
+  })
+})
+
+const Content = () => {
+  const content = useAtomValue(contentAtom)
+  return <>{content}</>
+}
+
 export default function App() {
-  const [visible, setVisible] = useState(false);
-  const handler = () => setVisible(true);
-  const closeHandler = () => {
+  const [visible, setVisible] = useAtom(visibleAtom)
+  const handler = useCallback(() => setVisible(true), [setVisible]);
+  const closeHandler = useCallback(() => {
     setVisible(false);
     console.log("closed");
-  };
-  const [values, setValues] = useState({
-    twitter_id: '',
-    content: '',
-  })
-  const [loading, setLoading] = useState(false);
-  const handleChange = (prop) => (event) => {
-    setValues({ ...values, [prop]: event.target.value })
-  }
+  }, [setVisible]);
+  const [isLoading, startTransition] = useTransition()
+  const setTwitterId = useSetAtom(twitterIdAtom)
+
+  const [input, setInput] = useState('')
+  const handleInputChange = useCallback((event) => {
+    setInput(event.target.value)
+  }, [])
 
   const handleConfirm = async () => {
     setVisible(false);
-    setLoading(true)
-    try {
-      const response = await fetch('https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=' + values.twitter_id, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'GET',
-      })
-      if (!response.ok) {
-        const error = await response.json()
-        console.error(error.error)
-        setCurrentError(error.error)
-        throw new Error('Request failed')
+    startTransition(() => {
+      if (input !== '') {
+        setTwitterId(input)
       }
-      const data = response.body
-      if (!data)
-        throw new Error('No data')
-
-      const reader = data.getReader()
-      const decoder = new TextDecoder('utf-8')
-      let done = false
-
-      while (!done) {
-        const { value, done: readerDone } = await reader.read()
-        if (value) {
-          const char = decoder.decode(value)
-
-          if (char.startsWith('Data:')) {
-            setValues({ content: char.substring(5) })
-          } else {
-            setValues({ content: values.content + char })
-          }
-
-          // const lines = char.trim().split('\n')
-          // console.log(lines)
-
-          // var isData = false
-
-          // for (let i = 0; i < lines.length; i++) {
-          //   if (lines[i] == 'Data:') {
-          //     isData = true
-          //     setValues({ content: '' })
-          //     continue
-          //   }
-
-          //   if (isData == true) {
-          //     const line = lines[i]
-          //     setValues({ content: values.content + line })
-          //     i++
-          //     continue
-          //   }
-
-          //   if (isData == false) {
-          //     const line = lines[i]
-          //     setValues({ content: values.content + line })
-          //     continue
-          //   }
-          // }
-
-          // for (let i = 0; i < lines.length; i++) {
-          //   if (lines[i] === '') {
-          //     i++
-          //     continue
-          //   }
-          //   if (lines[i].startsWith('event:plugin_selected')) {
-          //     const line = lines[i + 1]
-          //     const data = line.substring(5)
-          //     // setCurrentPlugin(data)
-          //     const plugin = `Plugin: \`\`\`${data}\`\`\`` + '\n'
-          //     setCurrentAssistantMessage(currentAssistantMessage() + plugin)
-          //     i++
-          //     continue
-          //   }
-          //   if (lines[i].startsWith('event:plugin_requested')) {
-          //     const line = lines[i + 1]
-          //     const data = line.substring(5)
-          //     // setCurrentPluginReq(data)
-          //     const splitData = data.split(/(.{50})/).filter(Boolean)
-          //     console.log('splitData', splitData)
-          //     const req = `Plugin: \`\`\`json${splitData.join('\n')}\`\`\`` + '\n'
-          //     // const req = `Plugin Req: \`\`\`${data}\`\`\`` + '\n'
-          //     setCurrentAssistantMessage(currentAssistantMessage() + req)
-          //     i++
-          //     continue
-          //   }
-          //   if (lines[i].startsWith('event:plugin_responsed')) {
-          //     const line = lines[i + 1]
-          //     const data = line.substring(5)
-          //     // setCurrentPluginResp(data)
-          //     const resp = `Plugin Resp: \`\`\`${data}\`\`\`` + '\n'
-          //     setCurrentAssistantMessage(currentAssistantMessage() + resp)
-
-          //     i++
-          //     continue
-          //   }
-          //   if (lines[i].startsWith('event:completion')) {
-          //     const line = lines[i + 1]
-          //     const data = JSON.parse(line.substring(5))
-          //     setCurrentAssistantMessage(currentAssistantMessage() + data.delta)
-          //     i++
-          //     continue
-          //   }
-          // }
-        }
-        done = readerDone
-        setLoading(false)
-      }
-    } catch (e) {
-      console.error(e)
-      return
-    }
+    })
   };
 
-
   return (
-    <Container sm display="flex" gap={7} 
+    <Container sm display="flex" gap={7}
       css={{
         marginTop: '4em'
       }}
@@ -239,13 +197,13 @@ export default function App() {
             <Input
               clearable
               contentRightStyling={ false }
-              label=""
+              aria-label='twitter id input'
               placeholder="L_x_x_x_x_x"
               labelLeft="ID"
-              onChange={ handleChange('twitter_id') }
-              value={ values.twitter_id }
+              onChange={handleInputChange}
+              value={input}
               contentRight={
-                !loading ?
+                !isLoading ?
                 <SendButton onClick={ handler }>
                   <SendIcon />
                 </SendButton>
@@ -254,7 +212,7 @@ export default function App() {
               }
             />
             {
-              loading && 
+              isLoading &&
               <Text css={{
                 marginTop: '$4',
                 color: '$blue800',
@@ -286,7 +244,7 @@ export default function App() {
               <Text>就好啦，非常感谢~</Text>
             </Modal.Body>
             <Modal.Footer>
-              <Button bordered color="gradient" auto onPress={ handleConfirm }>
+              <Button bordered color="gradient" auto onPress={handleConfirm}>
                 点这里继续～
               </Button>
             </Modal.Footer>
@@ -294,7 +252,9 @@ export default function App() {
           <Spacer y={ 1 } />
           <Row justify="center" align="center">
             <Text h6 size={ 15 } color="black" css={ { m: 2 } }>
-              { values.content }
+              <Suspense fallback={<Loading size="sm" css={{margin: '.5em'}} />}>
+                <Content />
+              </Suspense>
             </Text>
           </Row>
         </Card.Body>
