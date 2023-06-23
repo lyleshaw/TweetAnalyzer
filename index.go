@@ -458,6 +458,9 @@ func getTweetAnalysis(c *gin.Context) {
 	// get prompt from tweets
 	prompt := getPromptFromTweetResponse(w, *tweetResponse)
 
+	_, _ = fmt.Fprintf(w, "\n\n请求 AI 中...一分钟还没有结果请重试 orz\n\n")
+	w.Flush()
+
 	completion := ""
 	var callback anthropic.StreamCallback = func(resp *anthropic.CompletionResponse) error {
 		completion = resp.Completion
