@@ -5,6 +5,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai/react'
 import { atom } from 'jotai/vanilla'
 import { Observable } from 'rxjs'
 import { FormElement } from '@nextui-org/react/types/input/input-props'
+import { GrPowerCycle } from 'react-icons/gr'
 
 export const SendButton = styled('button', {
   // reset button styles
@@ -79,8 +80,11 @@ const visibleAtom = atom<boolean>(false)
 
 const twitterIdAtom = atom<string | null>(null)
 
+const contentQueryRequestIdStateAtom = atom<number>(0)
+
 const contentAtom = atomWithObservable((get) => {
   const id = get(twitterIdAtom)
+  get(contentQueryRequestIdStateAtom)
   return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController()
     if (id === null) {
@@ -124,7 +128,7 @@ const contentAtom = atomWithObservable((get) => {
         }
       }
 
-      fetchData().catch(subscriber.error)
+      fetchData().catch((err) => subscriber.error(err))
     }
 
     return () => {
@@ -140,13 +144,15 @@ const Content = () => {
 
 export default function App() {
   const [visible, setVisible] = useAtom(visibleAtom)
+
   const handler = useCallback(() => setVisible(true), [setVisible]);
   const closeHandler = useCallback(() => {
     setVisible(false);
     console.log("closed");
   }, [setVisible]);
   const [isLoading, startTransition] = useTransition()
-  const setTwitterId = useSetAtom(twitterIdAtom)
+  const [twitterId, setTwitterId] = useAtom(twitterIdAtom)
+  const setRequestId = useSetAtom(contentQueryRequestIdStateAtom)
 
   const [input, setInput] = useState('')
   const handleInputChange = useCallback((event: React.ChangeEvent<FormElement>) => {
@@ -161,6 +167,12 @@ export default function App() {
       }
     })
   };
+
+  const handleRetry = () => {
+    startTransition(() => {
+      setRequestId((id) => id += 1)
+    })
+  }
 
   return (
     <Container sm display="flex" gap={7}
@@ -215,12 +227,19 @@ export default function App() {
               onChange={handleInputChange}
               value={input}
               contentRight={
-                !isLoading ?
-                  <SendButton onClick={handler}>
-                    <SendIcon />
-                  </SendButton>
-                  :
-                  <Loading size="sm" css={{margin: '.5em'}} />
+                !isLoading ? (
+                  input === twitterId ? (
+                    <SendButton onClick={handleRetry}>
+                      <GrPowerCycle />
+                    </SendButton>
+                  ) : (
+                    <SendButton onClick={handler}>
+                      <SendIcon />
+                    </SendButton>
+                  )
+                ) : (
+                  <Loading size="sm" css={{ margin: '.5em' }} />
+                )
               }
             />
             {
