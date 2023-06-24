@@ -1,37 +1,41 @@
-import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled, Loading, Dropdown, Grid } from "@nextui-org/react";
-import React, { useId, Suspense, useCallback, useState, useTransition } from 'react'
-import { atomWithObservable } from 'jotai/utils'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai/react'
-import { atom } from 'jotai/vanilla'
-import { Observable } from 'rxjs'
-import { FormElement } from '@nextui-org/react/types/input/input-props'
-import { Model, ModelChange } from "./components/model-change";
-import { GrPowerCycle } from 'react-icons/gr'
+import styled from "@emotion/styled";
+import React, {
+  Suspense,
+  useCallback,
+  useState,
+  useTransition,
+  useRef,
+} from "react";
+import { atomWithObservable } from "jotai/utils";
+import { useAtomValue, useSetAtom } from "jotai/react";
+import { atom } from "jotai/vanilla";
+import { Observable } from "rxjs";
+import Link from "next/link";
 
-export const SendButton = styled('button', {
-  // reset button styles
-  background: 'transparent',
-  border: 'none',
-  padding: 0,
-  // styles
-  width: '24px',
-  margin: '0 10px',
-  dflex: 'center',
-  bg: '$primary',
-  borderRadius: '$rounded',
-  cursor: 'pointer',
-  transition: 'opacity 0.25s ease 0s, transform 0.25s ease 0s',
-  svg: {
-    size: '100%',
-    padding: '4px',
-    transition: 'transform 0.25s ease 0s, opacity 200ms ease-in-out 50ms',
-    boxShadow: '0 5px 20px -5px rgba(0, 0, 0, 0.1)',
-  },
-  '&:hover': {
-    opacity: 0.8
-  },
-  '&:active': {
-    transform: 'scale(0.9)',
+export const SendButton = styled.button`
+  background: "transparent";
+  border: none;
+  padding: 0;
+
+  width: 20px;
+  margin: "0 10px";
+  display: flex;
+  justify-content: center;
+
+  border-radius: 50%;
+  cursor: pointer;
+  transition: opacity 0.25s ease 0s, transform 0.25s ease 0s;
+  svg {
+    size: "100%";
+    padding: 4px;
+    transition: transform 0.25s ease 0s, opacity 200ms ease-in-out 50ms;
+    box-shadow: 0 5px 20px -5px rgba(0, 0, 0, 0.1);
+  }
+  &:hover {
+    opacity: 0.8;
+  }
+  &:active {
+    transform: scale(0.9);
     svg: {
       transform: translate(24px, -24px);
       opacity: 0;
@@ -79,20 +83,8 @@ const SendIcon = ({
 
 const twitterIdAtom = atom<string | null>(null);
 
-const contentQueryRequestIdStateAtom = atom<number>(0)
-
-const models:Record<string, string> = {
-  'Open-AI': 'https://weet-api-boe.aireview.tech/api/get_tweet_analysis',
-  'Claude': 'https://tweet-api.aireview.tech/api/get_tweet_analysis'
-}
-
-const modelAtom = atom('Open-AI');
-
-
 const contentAtom = atomWithObservable((get) => {
-  const id = get(twitterIdAtom)
-  const mode = get(modelAtom);
-  const api = models[mode];
+  const id = get(twitterIdAtom);
   return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController();
     if (id === null) {
@@ -100,14 +92,17 @@ const contentAtom = atomWithObservable((get) => {
       subscriber.next(null);
     } else {
       async function fetchData() {
-        const response = await fetch(`${api}?twitter_id=${id}`, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: abortController.signal,
-          method: 'GET',
-        })
-
+        const response = await fetch(
+          "https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=" +
+            id,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            signal: abortController.signal,
+            method: "GET",
+          }
+        );
         if (!response.ok) {
           const error = await response.json();
           console.error(error.error);
@@ -137,7 +132,7 @@ const contentAtom = atomWithObservable((get) => {
         }
       }
 
-      fetchData().catch((err) => subscriber.error(err))
+      fetchData().catch(subscriber.error);
     }
 
     return () => {
@@ -152,16 +147,18 @@ const Content = () => {
 };
 
 export default function App() {
-  const [visible, setVisible] = useAtom(visibleAtom)
-  const [model, setModel] = useAtom(modelAtom)
-  const handler = useCallback(() => setVisible(true), [setVisible]);
-  const closeHandler = useCallback(() => {
-    setVisible(false);
-    console.log("closed");
-  }, [setVisible]);
-  const [isLoading, startTransition] = useTransition()
-  const [twitterId, setTwitterId] = useAtom(twitterIdAtom)
-  const setRequestId = useSetAtom(contentQueryRequestIdStateAtom)
+  const [input, setInput] = useState("");
+  const modalRef = useRef<HTMLDialogElement>(null);
+
+  const [isLoading, startTransition] = useTransition();
+  const setTwitterId = useSetAtom(twitterIdAtom);
+  const handleInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      setInput(event.target.value);
+    },
+    []
+  );
+
   const handler = useCallback(() => {
     modalRef.current?.showModal();
   }, [modalRef]);
@@ -174,90 +171,34 @@ export default function App() {
     });
   };
 
-  const onSelect = (mode: Model)=>{
-    setModel(Object.keys(mode)[0])
-  }
-
   return (
-    <Container sm display="flex" gap={7}
-      css={{
-        marginTop: '4em'
-      }}
-    >
-      <Col css={{
-        textAlign: 'center'
-      }}>
-        <Text
-          transform="full-size-kana"
-          h1
-          size={50}
-          css={ {
-            textGradient: "to right, #006E3A 8%, #166BB5 100%",
-            '@xsMax': {fontSize: '2.5rem'},
-          } }
-          weight="bold"
-        >
-          推文分析器
-        </Text>
-        <Text
-          transform="full-size-kana"
-          h1
-          size={ 37 }
-          css={ {
-            textGradient: "to right, #006E3A 8%, #166BB5 100%",
-          } }
-          weight="bold"
-        >
-          Tweet Analyzer
-        </Text>
-        <ModelChange models={models} defaultSelect={model} onSelect={onSelect}>
-          <Text
-            transform="full-size-kana"
-            h1
-            size={24}
-            css={ {
-              textGradient: "to right, #006E3A 8%, #166BB5 100%",
-              '@xsMax': {fontSize: '2.5rem'},
-            } }
-            weight="bold"
-          >
-            {model}
-          </Text>
-        </ModelChange>
-      </Col>
-      <Spacer y={4} />
-      {/* @ts-expect-error */}
-      <Card gap={2}>
-        <Card.Body>
-          {/* @ts-expect-error */}
-          <Col justify="center" align="center">
-            <Text css={{
-              color: '$accents7'
-            }}>请输入 Twitter ID [如 https://twitter.com/jack 即应输入 jack]</Text>
-            <Spacer y={0.5}/>
-            <Input
-              clearable
-              id={useId()}
-              contentRightStyling={ false }
-              aria-label='twitter id input'
+    <div className="lg:m-12 sm:m-8 m-8">
+      <div className="text-center mt-24">
+        <div className="indicator">
+          <span className="indicator-item badge -right-4 -top-4 ">
+            OpenAI 版
+          </span>
+          <div className="inline bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
+            赛博算命师
+          </div>
+        </div>
+        <div className="block bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
+          Cyber Fortune Teller
+        </div>
+      </div>
+
+      <div className="card shadow-xl bg-base-100 w-auto">
+        <div className="card-body text-center p-2 py-12">
+          <div className="text-gray-500">
+            请输入 Twitter ID
+            <div>[如 https://twitter.com/jack 即应输入 jack]</div>
+          </div>
+          <div className="join mx-auto">
+            <button className="btn join-item">ID</button>
+            <input
+              className="input input-bordered join-item "
               placeholder="L_x_x_x_x_x"
               onChange={handleInputChange}
-              value={input}
-              contentRight={
-                !isLoading ? (
-                  input === twitterId ? (
-                    <SendButton onClick={handleRetry}>
-                      <GrPowerCycle />
-                    </SendButton>
-                  ) : (
-                    <SendButton onClick={handler}>
-                      <SendIcon />
-                    </SendButton>
-                  )
-                ) : (
-                  <Loading size="sm" css={{ margin: '.5em' }} />
-                )
-              }
             />
             <div className="btn join-item">
               {!isLoading ? (
