@@ -1,10 +1,11 @@
-import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled, Loading } from "@nextui-org/react";
+import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled, Loading, Dropdown, Grid } from "@nextui-org/react";
 import React, { useId, Suspense, useCallback, useState, useTransition } from 'react'
 import { atomWithObservable } from 'jotai/utils'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai/react'
 import { atom } from 'jotai/vanilla'
 import { Observable } from 'rxjs'
 import { FormElement } from '@nextui-org/react/types/input/input-props'
+import { Model, ModelChange } from "./components/model-change";
 
 export const SendButton = styled('button', {
   // reset button styles
@@ -79,8 +80,18 @@ const visibleAtom = atom<boolean>(false)
 
 const twitterIdAtom = atom<string | null>(null)
 
+const models:Record<string, string> = {
+  'Open-AI': 'https://weet-api-boe.aireview.tech/api/get_tweet_analysis',
+  'Claude': 'https://tweet-api.aireview.tech/api/get_tweet_analysis'
+}
+
+const modelAtom = atom('Open-AI');
+
+
 const contentAtom = atomWithObservable((get) => {
   const id = get(twitterIdAtom)
+  const mode = get(modelAtom);
+  const api = models[mode];
   return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController()
     if (id === null) {
@@ -88,7 +99,7 @@ const contentAtom = atomWithObservable((get) => {
       subscriber.next(null)
     } else {
       async function fetchData() {
-        const response = await fetch('https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=' + id, {
+        const response = await fetch(`${api}?twitter_id=${id}`, {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -140,6 +151,7 @@ const Content = () => {
 
 export default function App() {
   const [visible, setVisible] = useAtom(visibleAtom)
+  const [model, setModel] = useAtom(modelAtom)
   const handler = useCallback(() => setVisible(true), [setVisible]);
   const closeHandler = useCallback(() => {
     setVisible(false);
@@ -162,6 +174,10 @@ export default function App() {
     })
   };
 
+  const onSelect = (mode: Model)=>{
+    setModel(Object.keys(mode)[0])
+  }
+
   return (
     <Container sm display="flex" gap={7}
       css={{
@@ -181,7 +197,7 @@ export default function App() {
           } }
           weight="bold"
         >
-          推文分析器 OpenAI 版
+          推文分析器
         </Text>
         <Text
           transform="full-size-kana"
@@ -194,6 +210,20 @@ export default function App() {
         >
           Tweet Analyzer
         </Text>
+        <ModelChange models={models} defaultSelect={model} onSelect={onSelect}>
+          <Text
+            transform="full-size-kana"
+            h1
+            size={24}
+            css={ {
+              textGradient: "to right, #006E3A 8%, #166BB5 100%",
+              '@xsMax': {fontSize: '2.5rem'},
+            } }
+            weight="bold"
+          >
+            {model}
+          </Text>
+        </ModelChange>
       </Col>
       <Spacer y={4} />
       {/* @ts-expect-error */}
