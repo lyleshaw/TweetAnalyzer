@@ -1,324 +1,46 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/madebywelch/anthropic-go/pkg/anthropic"
-	"github.com/spf13/viper"
-	"gopkg.in/antage/eventsource.v1"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/madebywelch/anthropic-go/pkg/anthropic"
+	"github.com/sashabaranov/go-openai"
+	"github.com/spf13/viper"
+	"gopkg.in/antage/eventsource.v1"
 )
 
 type TweetsResponse struct {
 	Tweets []struct {
 		CreatedAt string `json:"created_at"`
-		ID        int64  `json:"id"`
-		IDStr     string `json:"id_str"`
 		Text      string `json:"text"`
-		Truncated bool   `json:"truncated"`
+		ID        int64  `json:"id"`
 		Entities  struct {
-			Hashtags     []interface{} `json:"hashtags"`
-			Symbols      []interface{} `json:"symbols"`
 			UserMentions []struct {
 				ScreenName string `json:"screen_name"`
-				Name       string `json:"name"`
-				ID         int64  `json:"id"`
-				IDStr      string `json:"id_str"`
-				Indices    []int  `json:"indices"`
 			} `json:"user_mentions"`
-			Urls []interface{} `json:"urls"`
 		} `json:"entities,omitempty"`
-		Source               string `json:"source"`
-		InReplyToStatusID    int64  `json:"in_reply_to_status_id"`
-		InReplyToStatusIDStr string `json:"in_reply_to_status_id_str"`
-		InReplyToUserID      int64  `json:"in_reply_to_user_id"`
-		InReplyToUserIDStr   string `json:"in_reply_to_user_id_str"`
-		InReplyToScreenName  string `json:"in_reply_to_screen_name"`
-		User                 struct {
-			ID          int64       `json:"id"`
-			IDStr       string      `json:"id_str"`
-			Name        string      `json:"name"`
-			ScreenName  string      `json:"screen_name"`
-			Location    string      `json:"location"`
-			Description string      `json:"description"`
-			URL         interface{} `json:"url"`
-			Entities    struct {
-				Description struct {
-					Urls []interface{} `json:"urls"`
-				} `json:"description"`
-			} `json:"entities"`
-			Protected                      bool          `json:"protected"`
-			FollowersCount                 int           `json:"followers_count"`
-			FastFollowersCount             int           `json:"fast_followers_count"`
-			NormalFollowersCount           int           `json:"normal_followers_count"`
-			FriendsCount                   int           `json:"friends_count"`
-			ListedCount                    int           `json:"listed_count"`
-			CreatedAt                      string        `json:"created_at"`
-			FavouritesCount                int           `json:"favourites_count"`
-			UtcOffset                      interface{}   `json:"utc_offset"`
-			TimeZone                       interface{}   `json:"time_zone"`
-			GeoEnabled                     bool          `json:"geo_enabled"`
-			Verified                       bool          `json:"verified"`
-			StatusesCount                  int           `json:"statuses_count"`
-			MediaCount                     int           `json:"media_count"`
-			Lang                           interface{}   `json:"lang"`
-			ContributorsEnabled            bool          `json:"contributors_enabled"`
-			IsTranslator                   bool          `json:"is_translator"`
-			IsTranslationEnabled           bool          `json:"is_translation_enabled"`
-			ProfileBackgroundColor         string        `json:"profile_background_color"`
-			ProfileBackgroundImageURL      interface{}   `json:"profile_background_image_url"`
-			ProfileBackgroundImageURLHTTPS interface{}   `json:"profile_background_image_url_https"`
-			ProfileBackgroundTile          bool          `json:"profile_background_tile"`
-			ProfileImageURL                string        `json:"profile_image_url"`
-			ProfileImageURLHTTPS           string        `json:"profile_image_url_https"`
-			ProfileBannerURL               string        `json:"profile_banner_url"`
-			ProfileLinkColor               string        `json:"profile_link_color"`
-			ProfileSidebarBorderColor      string        `json:"profile_sidebar_border_color"`
-			ProfileSidebarFillColor        string        `json:"profile_sidebar_fill_color"`
-			ProfileTextColor               string        `json:"profile_text_color"`
-			ProfileUseBackgroundImage      bool          `json:"profile_use_background_image"`
-			HasExtendedProfile             bool          `json:"has_extended_profile"`
-			DefaultProfile                 bool          `json:"default_profile"`
-			DefaultProfileImage            bool          `json:"default_profile_image"`
-			PinnedTweetIds                 []int64       `json:"pinned_tweet_ids"`
-			PinnedTweetIdsStr              []string      `json:"pinned_tweet_ids_str"`
-			HasCustomTimelines             bool          `json:"has_custom_timelines"`
-			Following                      interface{}   `json:"following"`
-			FollowRequestSent              interface{}   `json:"follow_request_sent"`
-			Notifications                  interface{}   `json:"notifications"`
-			AdvertiserAccountType          string        `json:"advertiser_account_type"`
-			AdvertiserAccountServiceLevels []string      `json:"advertiser_account_service_levels"`
-			BusinessProfileState           string        `json:"business_profile_state"`
-			TranslatorType                 string        `json:"translator_type"`
-			WithheldInCountries            []interface{} `json:"withheld_in_countries"`
-			RequireSomeConsent             bool          `json:"require_some_consent"`
+		User struct {
+			Name            string `json:"name"`
+			ScreenName      string `json:"screen_name"`
+			Description     string `json:"description"`
+			FollowersCount  int    `json:"followers_count"`
+			FriendsCount    int    `json:"friends_count"`
+			CreatedAt       string `json:"created_at"`
+			FavouritesCount int    `json:"favourites_count"`
+			StatusesCount   int    `json:"statuses_count"`
 		} `json:"user"`
-		Geo                  interface{} `json:"geo"`
-		Coordinates          interface{} `json:"coordinates"`
-		Place                interface{} `json:"place"`
-		Contributors         interface{} `json:"contributors"`
-		IsQuoteStatus        bool        `json:"is_quote_status"`
-		RetweetCount         int         `json:"retweet_count"`
-		FavoriteCount        int         `json:"favorite_count"`
-		ConversationID       int64       `json:"conversation_id"`
-		ConversationIDStr    string      `json:"conversation_id_str"`
-		Favorited            bool        `json:"favorited"`
-		Retweeted            bool        `json:"retweeted"`
-		Lang                 string      `json:"lang"`
-		SupplementalLanguage interface{} `json:"supplemental_language"`
-		Entities0            struct {
-			Hashtags     []interface{} `json:"hashtags"`
-			Symbols      []interface{} `json:"symbols"`
-			UserMentions []struct {
-				ScreenName string `json:"screen_name"`
-				Name       string `json:"name"`
-				ID         int64  `json:"id"`
-				IDStr      string `json:"id_str"`
-				Indices    []int  `json:"indices"`
-			} `json:"user_mentions"`
-			Urls  []interface{} `json:"urls"`
-			Media []struct {
-				ID            int64  `json:"id"`
-				IDStr         string `json:"id_str"`
-				Indices       []int  `json:"indices"`
-				MediaURL      string `json:"media_url"`
-				MediaURLHTTPS string `json:"media_url_https"`
-				URL           string `json:"url"`
-				DisplayURL    string `json:"display_url"`
-				ExpandedURL   string `json:"expanded_url"`
-				Type          string `json:"type"`
-				OriginalInfo  struct {
-					Width      int `json:"width"`
-					Height     int `json:"height"`
-					FocusRects []struct {
-						X int `json:"x"`
-						Y int `json:"y"`
-						H int `json:"h"`
-						W int `json:"w"`
-					} `json:"focus_rects"`
-				} `json:"original_info"`
-				Sizes struct {
-					Small struct {
-						W      int    `json:"w"`
-						H      int    `json:"h"`
-						Resize string `json:"resize"`
-					} `json:"small"`
-					Thumb struct {
-						W      int    `json:"w"`
-						H      int    `json:"h"`
-						Resize string `json:"resize"`
-					} `json:"thumb"`
-					Large struct {
-						W      int    `json:"w"`
-						H      int    `json:"h"`
-						Resize string `json:"resize"`
-					} `json:"large"`
-					Medium struct {
-						W      int    `json:"w"`
-						H      int    `json:"h"`
-						Resize string `json:"resize"`
-					} `json:"medium"`
-				} `json:"sizes"`
-			} `json:"media"`
-		} `json:"entities,omitempty"`
-		ExtendedEntities struct {
-			Media []struct {
-				ID            int64  `json:"id"`
-				IDStr         string `json:"id_str"`
-				Indices       []int  `json:"indices"`
-				MediaURL      string `json:"media_url"`
-				MediaURLHTTPS string `json:"media_url_https"`
-				URL           string `json:"url"`
-				DisplayURL    string `json:"display_url"`
-				ExpandedURL   string `json:"expanded_url"`
-				Type          string `json:"type"`
-				OriginalInfo  struct {
-					Width      int `json:"width"`
-					Height     int `json:"height"`
-					FocusRects []struct {
-						X int `json:"x"`
-						Y int `json:"y"`
-						H int `json:"h"`
-						W int `json:"w"`
-					} `json:"focus_rects"`
-				} `json:"original_info"`
-				Sizes struct {
-					Small struct {
-						W      int    `json:"w"`
-						H      int    `json:"h"`
-						Resize string `json:"resize"`
-					} `json:"small"`
-					Thumb struct {
-						W      int    `json:"w"`
-						H      int    `json:"h"`
-						Resize string `json:"resize"`
-					} `json:"thumb"`
-					Large struct {
-						W      int    `json:"w"`
-						H      int    `json:"h"`
-						Resize string `json:"resize"`
-					} `json:"large"`
-					Medium struct {
-						W      int    `json:"w"`
-						H      int    `json:"h"`
-						Resize string `json:"resize"`
-					} `json:"medium"`
-				} `json:"sizes"`
-				MediaKey string `json:"media_key"`
-			} `json:"media"`
-		} `json:"extended_entities,omitempty"`
-		PossiblySensitive         bool   `json:"possibly_sensitive,omitempty"`
-		PossiblySensitiveEditable bool   `json:"possibly_sensitive_editable,omitempty"`
-		QuotedStatusID            int64  `json:"quoted_status_id,omitempty"`
-		QuotedStatusIDStr         string `json:"quoted_status_id_str,omitempty"`
-		QuotedStatus              struct {
-			CreatedAt string `json:"created_at"`
-			ID        int64  `json:"id"`
-			IDStr     string `json:"id_str"`
-			Text      string `json:"text"`
-			Truncated bool   `json:"truncated"`
-			Entities  struct {
-				Hashtags     []interface{} `json:"hashtags"`
-				Symbols      []interface{} `json:"symbols"`
-				UserMentions []struct {
-					ScreenName string `json:"screen_name"`
-					Name       string `json:"name"`
-					ID         int64  `json:"id"`
-					IDStr      string `json:"id_str"`
-					Indices    []int  `json:"indices"`
-				} `json:"user_mentions"`
-				Urls []interface{} `json:"urls"`
-			} `json:"entities"`
-			Source               string `json:"source"`
-			InReplyToStatusID    int64  `json:"in_reply_to_status_id"`
-			InReplyToStatusIDStr string `json:"in_reply_to_status_id_str"`
-			InReplyToUserID      int64  `json:"in_reply_to_user_id"`
-			InReplyToUserIDStr   string `json:"in_reply_to_user_id_str"`
-			InReplyToScreenName  string `json:"in_reply_to_screen_name"`
-			User                 struct {
-				ID          int64       `json:"id"`
-				IDStr       string      `json:"id_str"`
-				Name        string      `json:"name"`
-				ScreenName  string      `json:"screen_name"`
-				Location    string      `json:"location"`
-				Description string      `json:"description"`
-				URL         interface{} `json:"url"`
-				Entities    struct {
-					Description struct {
-						Urls []interface{} `json:"urls"`
-					} `json:"description"`
-				} `json:"entities"`
-				Protected                      bool          `json:"protected"`
-				FollowersCount                 int           `json:"followers_count"`
-				FastFollowersCount             int           `json:"fast_followers_count"`
-				NormalFollowersCount           int           `json:"normal_followers_count"`
-				FriendsCount                   int           `json:"friends_count"`
-				ListedCount                    int           `json:"listed_count"`
-				CreatedAt                      string        `json:"created_at"`
-				FavouritesCount                int           `json:"favourites_count"`
-				UtcOffset                      interface{}   `json:"utc_offset"`
-				TimeZone                       interface{}   `json:"time_zone"`
-				GeoEnabled                     bool          `json:"geo_enabled"`
-				Verified                       bool          `json:"verified"`
-				StatusesCount                  int           `json:"statuses_count"`
-				MediaCount                     int           `json:"media_count"`
-				Lang                           interface{}   `json:"lang"`
-				ContributorsEnabled            bool          `json:"contributors_enabled"`
-				IsTranslator                   bool          `json:"is_translator"`
-				IsTranslationEnabled           bool          `json:"is_translation_enabled"`
-				ProfileBackgroundColor         string        `json:"profile_background_color"`
-				ProfileBackgroundImageURL      interface{}   `json:"profile_background_image_url"`
-				ProfileBackgroundImageURLHTTPS interface{}   `json:"profile_background_image_url_https"`
-				ProfileBackgroundTile          bool          `json:"profile_background_tile"`
-				ProfileImageURL                string        `json:"profile_image_url"`
-				ProfileImageURLHTTPS           string        `json:"profile_image_url_https"`
-				ProfileBannerURL               string        `json:"profile_banner_url"`
-				ProfileLinkColor               string        `json:"profile_link_color"`
-				ProfileSidebarBorderColor      string        `json:"profile_sidebar_border_color"`
-				ProfileSidebarFillColor        string        `json:"profile_sidebar_fill_color"`
-				ProfileTextColor               string        `json:"profile_text_color"`
-				ProfileUseBackgroundImage      bool          `json:"profile_use_background_image"`
-				HasExtendedProfile             bool          `json:"has_extended_profile"`
-				DefaultProfile                 bool          `json:"default_profile"`
-				DefaultProfileImage            bool          `json:"default_profile_image"`
-				PinnedTweetIds                 []int64       `json:"pinned_tweet_ids"`
-				PinnedTweetIdsStr              []string      `json:"pinned_tweet_ids_str"`
-				HasCustomTimelines             bool          `json:"has_custom_timelines"`
-				Following                      interface{}   `json:"following"`
-				FollowRequestSent              interface{}   `json:"follow_request_sent"`
-				Notifications                  interface{}   `json:"notifications"`
-				AdvertiserAccountType          string        `json:"advertiser_account_type"`
-				AdvertiserAccountServiceLevels []interface{} `json:"advertiser_account_service_levels"`
-				BusinessProfileState           string        `json:"business_profile_state"`
-				TranslatorType                 string        `json:"translator_type"`
-				WithheldInCountries            []interface{} `json:"withheld_in_countries"`
-				RequireSomeConsent             bool          `json:"require_some_consent"`
-			} `json:"user"`
-			Geo                  interface{} `json:"geo"`
-			Coordinates          interface{} `json:"coordinates"`
-			Place                interface{} `json:"place"`
-			Contributors         interface{} `json:"contributors"`
-			IsQuoteStatus        bool        `json:"is_quote_status"`
-			RetweetCount         int         `json:"retweet_count"`
-			FavoriteCount        int         `json:"favorite_count"`
-			ConversationID       int64       `json:"conversation_id"`
-			ConversationIDStr    string      `json:"conversation_id_str"`
-			Favorited            bool        `json:"favorited"`
-			Retweeted            bool        `json:"retweeted"`
-			Lang                 string      `json:"lang"`
-			SupplementalLanguage interface{} `json:"supplemental_language"`
-		} `json:"quoted_status,omitempty"`
-		SelfThread struct {
-			ID    int64  `json:"id"`
-			IDStr string `json:"id_str"`
-		} `json:"self_thread,omitempty"`
 	} `json:"tweets"`
-	HasMore bool `json:"hasMore"`
+	Client string `json:"client"`
 }
 
 func CompletionWithoutSessionWithStreamByClaude(client *anthropic.Client, prompt string, callBack anthropic.StreamCallback) error {
@@ -336,7 +58,25 @@ func CompletionWithoutSessionWithStreamByClaude(client *anthropic.Client, prompt
 	}
 	return nil
 }
-
+func CompletionWithoudSessionWithStreamByOpenAI(ctx context.Context, client *openai.Client, prompt string) (*openai.ChatCompletionStream, error) {
+	req := openai.ChatCompletionRequest{
+		Model:     openai.GPT3Dot5Turbo,
+		MaxTokens: 1000,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: prompt,
+			},
+		},
+		Stream: true,
+	}
+	stream, err := client.CreateChatCompletionStream(ctx, req)
+	if err != nil {
+		fmt.Printf("ChatCompletionStream error: %v\n", err)
+		return nil, err
+	}
+	return stream, nil
+}
 func GetClaudeClient() (*anthropic.Client, error) {
 	viper.SetConfigFile(".env")
 	_ = viper.ReadInConfig()
@@ -346,40 +86,13 @@ func GetClaudeClient() (*anthropic.Client, error) {
 	AnthropicApiKey := viper.GetString("ANTHROPIC_API_KEY")
 	return anthropic.NewClient(AnthropicApiKey)
 }
-
-func sendRequestToGetTweets(twitterId string, maxId *string) *TweetsResponse {
-	url := "https://twitter-virtual-scroller.vercel.app/api/user_timeline/" + twitterId
-	if maxId != nil {
-		url += "?max_id=" + *maxId
-	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	var tweetResponse TweetsResponse
-	err = json.Unmarshal(body, &tweetResponse)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	return &tweetResponse
+func GetOpenAIClient() (context.Context, *openai.Client, error) {
+	ctx := context.Background()
+	config := openai.DefaultConfig("sb-4d2ed1a575db4bd4e1df1c377252a6ae")
+	config.BaseURL = "https://api.openai-sb.com/v1"
+	fmt.Printf("base url: %s\n", config.BaseURL)
+	return ctx, openai.NewClientWithConfig(config), nil
 }
-
 func getTweetPrompt(response TweetsResponse) (string, string) {
 	prompt := ""
 	maxId := ""
@@ -401,7 +114,7 @@ func getTweetPrompt(response TweetsResponse) (string, string) {
 	return prompt, maxId
 }
 
-func getPromptFromTweetResponse(w gin.ResponseWriter, response TweetsResponse) string {
+func getPromptFromTweetResponse(response TweetsResponse) string {
 	prompt := "你是一个专业的心理咨询师。你的工作是从一个人所发表的推文里专业而详细的分析其性格并分点给出依据，下面是你所需要分析的推主的一些信息：\n\n"
 	prompt += "这个推主的名字是" + response.Tweets[0].User.Name + "；" +
 		"ID 是" + response.Tweets[0].User.ScreenName + "；" +
@@ -412,28 +125,57 @@ func getPromptFromTweetResponse(w gin.ResponseWriter, response TweetsResponse) s
 		"喜欢了" + strconv.Itoa(response.Tweets[0].User.FavouritesCount) + "条推文；" +
 		"注册于" + response.Tweets[0].User.CreatedAt + "。\n"
 
-	hasMore := response.HasMore
-	tryTimes := 0
-
-	for hasMore {
-		tweetPrompt, maxId := getTweetPrompt(response)
-		prompt += tweetPrompt
-		response = *sendRequestToGetTweets(response.Tweets[0].User.ScreenName, &maxId)
-		hasMore = response.HasMore
-		tryTimes++
-		_, _ = fmt.Fprintf(w, "第 %d 次抓取推文，本次抓取 %d 条\n\n", tryTimes, len(response.Tweets))
-		w.Flush()
-		fmt.Printf("第 %d 次抓取推文，本次抓取 %d 条\n\n", tryTimes, len(response.Tweets))
-		if tryTimes > 10 {
-			break
-		}
-	}
+	tweetPrompt, maxId := getTweetPrompt(response)
+	prompt += tweetPrompt
+	fmt.Println(maxId)
+	//这里默认是前端回传了所有的需要的推文
 
 	prompt += "\n\n请你根据以上信息，分析这个推主的性格特点，并给出你的分析依据(即所引用的推文原文)。要求写出 500 字以上的分析内容，必须从 10 点以上论述，并在最后从多个维度总结推主是什么样的人。"
 
 	return prompt
 }
+func getStreamFromClaude(c *gin.Context, prompt string) {
+	w := c.Writer
+	completion := ""
+	var callback anthropic.StreamCallback = func(resp *anthropic.CompletionResponse) error {
+		completion = resp.Completion
+		_, _ = fmt.Fprintf(w, "Data:\n%s\n\n", completion)
+		w.Flush()
+		fmt.Printf("%s\n\n", completion)
+		return nil
+	}
+	client, _ := GetClaudeClient()
+	_ = CompletionWithoutSessionWithStreamByClaude(client, prompt, callback)
+}
+func getStreamFromOpenAI(c *gin.Context, prompt string) {
+	w := c.Writer
+	ctx, clientOpenai, err := GetOpenAIClient()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := CompletionWithoudSessionWithStreamByOpenAI(ctx, clientOpenai, prompt)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"error": err.Error()})
+		return
+	}
+	finalResp := ""
+	for {
+		response, err := resp.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			fmt.Printf("Stream error: %v\n", err)
+			return
+		}
+		finalResp += response.Choices[0].Delta.Content
+		_, _ = fmt.Fprintf(w, "Data:\n%s\n\n", finalResp)
+		w.Flush()
+	}
+}
 
+// 改为post发送数据
 func getTweetAnalysis(c *gin.Context) {
 	w := c.Writer
 
@@ -443,38 +185,79 @@ func getTweetAnalysis(c *gin.Context) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	_, _ = w.(http.Flusher)
-
-	// get tweet id from query string
-	twitterId := c.Query("twitter_id")
-
-	// get tweets from twitter api
-	tweetResponse := sendRequestToGetTweets(twitterId, nil)
-
+	var tweetResponse TweetsResponse
+	if err := c.ShouldBindJSON(&tweetResponse); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON data"})
+		return
+	}
 	if len(tweetResponse.Tweets) == 0 {
 		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
 		return
 	}
-
-	// get prompt from tweets
-	prompt := getPromptFromTweetResponse(w, *tweetResponse)
+	prompt := getPromptFromTweetResponse(tweetResponse)
+	fmt.Print(prompt)
 
 	_, _ = fmt.Fprintf(w, "\n\n请求 AI 中...一分钟还没有结果请重试 orz\n\n")
 	w.Flush()
-
-	completion := ""
-	var callback anthropic.StreamCallback = func(resp *anthropic.CompletionResponse) error {
-		completion = resp.Completion
-		_, _ = fmt.Fprintf(w, "Data:\n%s\n\n", completion)
-		w.Flush()
-		fmt.Printf("%s\n\n", completion)
-		return nil
+	if tweetResponse.Client == "claude" {
+		getStreamFromClaude(c, prompt)
 	}
-
-	client, _ := GetClaudeClient()
-	_ = CompletionWithoutSessionWithStreamByClaude(client, prompt, callback)
-
+	if tweetResponse.Client == "openai" {
+		getStreamFromOpenAI(c, prompt)
+	}
 }
 
+// 查询用户timeline
+func getTweeterTimeline(twitterId string, count string, maxId *string) *TweetsResponse {
+	url := "https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=" + twitterId + "&count=" + count
+	if maxId != nil {
+		url += "&max_id=" + *maxId
+	}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("TWITTER_BEARER_TOKEN"))
+	// 这里注意要添加一个TOKEN
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	var tweetResponse TweetsResponse
+	if err = json.Unmarshal(body, &tweetResponse.Tweets); err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	return &tweetResponse
+}
+func getTweetDetails(c *gin.Context) {
+	w := c.Writer
+
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	_, _ = w.(http.Flusher)
+	twitterId := c.Query("twitter_id")
+	count := c.Query("count")
+
+	tweetResponse := getTweeterTimeline(twitterId, count, nil)
+	if len(tweetResponse.Tweets) == 0 {
+		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
+		return
+	}
+	c.JSON(http.StatusOK, tweetResponse)
+	return
+}
 func Cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := c.Request.Method
@@ -498,7 +281,8 @@ func main() {
 	defer es.Close()
 	r := gin.Default()
 	r.Use(Cors())
-	r.GET("/api/get_tweet_analysis", getTweetAnalysis)
+	r.POST("/api/get_tweet_analysis", getTweetAnalysis)
+	r.GET("/api/get_tweet_details", getTweetDetails)
 	port := ":" + os.Getenv("PORT")
 	r.Run(port)
 }
