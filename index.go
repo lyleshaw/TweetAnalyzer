@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/madebywelch/anthropic-go/pkg/anthropic"
+	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/viper"
 	"gopkg.in/antage/eventsource.v1"
 )
@@ -36,6 +40,7 @@ type TweetsResponse struct {
 			StatusesCount   int    `json:"statuses_count"`
 		} `json:"user"`
 	} `json:"tweets"`
+	Client string `json:"client"`
 }
 
 func CompletionWithoutSessionWithStreamByClaude(client *anthropic.Client, prompt string, callBack anthropic.StreamCallback) error {
@@ -53,7 +58,25 @@ func CompletionWithoutSessionWithStreamByClaude(client *anthropic.Client, prompt
 	}
 	return nil
 }
-
+func CompletionWithoudSessionWithStreamByOpenAI(ctx context.Context, client *openai.Client, prompt string) (*openai.ChatCompletionStream, error) {
+	req := openai.ChatCompletionRequest{
+		Model:     openai.GPT3Dot5Turbo,
+		MaxTokens: 1000,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: prompt,
+			},
+		},
+		Stream: true,
+	}
+	stream, err := client.CreateChatCompletionStream(ctx, req)
+	if err != nil {
+		fmt.Printf("ChatCompletionStream error: %v\n", err)
+		return nil, err
+	}
+	return stream, nil
+}
 func GetClaudeClient() (*anthropic.Client, error) {
 	viper.SetConfigFile(".env")
 	_ = viper.ReadInConfig()
@@ -63,40 +86,13 @@ func GetClaudeClient() (*anthropic.Client, error) {
 	AnthropicApiKey := viper.GetString("ANTHROPIC_API_KEY")
 	return anthropic.NewClient(AnthropicApiKey)
 }
-
-func sendRequestToGetTweets(twitterId string, maxId *string) *TweetsResponse {
-	url := "https://twitter-virtual-scroller.vercel.app/api/user_timeline/" + twitterId
-	if maxId != nil {
-		url += "?max_id=" + *maxId
-	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	var tweetResponse TweetsResponse
-	err = json.Unmarshal(body, &tweetResponse)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	return &tweetResponse
+func GetOpenAIClient() (context.Context, *openai.Client, error) {
+	ctx := context.Background()
+	config := openai.DefaultConfig("sb-4d2ed1a575db4bd4e1df1c377252a6ae")
+	config.BaseURL = "https://api.openai-sb.com/v1"
+	fmt.Printf("base url: %s\n", config.BaseURL)
+	return ctx, openai.NewClientWithConfig(config), nil
 }
-
 func getTweetPrompt(response TweetsResponse) (string, string) {
 	prompt := ""
 	maxId := ""
@@ -118,7 +114,7 @@ func getTweetPrompt(response TweetsResponse) (string, string) {
 	return prompt, maxId
 }
 
-func getPromptFromTweetResponse(w gin.ResponseWriter, response TweetsResponse) string {
+func getPromptFromTweetResponse(response TweetsResponse) string {
 	prompt := "你是一个专业的心理咨询师。你的工作是从一个人所发表的推文里专业而详细的分析其性格并分点给出依据，下面是你所需要分析的推主的一些信息：\n\n"
 	prompt += "这个推主的名字是" + response.Tweets[0].User.Name + "；" +
 		"ID 是" + response.Tweets[0].User.ScreenName + "；" +
@@ -138,12 +134,52 @@ func getPromptFromTweetResponse(w gin.ResponseWriter, response TweetsResponse) s
 
 	return prompt
 }
+func getStreamFromClaude(c *gin.Context, prompt string) {
+	w := c.Writer
+	completion := ""
+	var callback anthropic.StreamCallback = func(resp *anthropic.CompletionResponse) error {
+		completion = resp.Completion
+		_, _ = fmt.Fprintf(w, "Data:\n%s\n\n", completion)
+		w.Flush()
+		fmt.Printf("%s\n\n", completion)
+		return nil
+	}
+	client, _ := GetClaudeClient()
+	_ = CompletionWithoutSessionWithStreamByClaude(client, prompt, callback)
+}
+func getStreamFromOpenAI(c *gin.Context, prompt string) {
+	w := c.Writer
+	ctx, clientOpenai, err := GetOpenAIClient()
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := CompletionWithoudSessionWithStreamByOpenAI(ctx, clientOpenai, prompt)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"error": err.Error()})
+		return
+	}
+	finalResp := ""
+	for {
+		response, err := resp.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			fmt.Printf("Stream error: %v\n", err)
+			return
+		}
+		finalResp += response.Choices[0].Delta.Content
+		_, _ = fmt.Fprintf(w, "Data:\n%s\n\n", finalResp)
+		w.Flush()
+	}
+}
 
 // 改为post发送数据
 func getTweetAnalysis(c *gin.Context) {
 	w := c.Writer
 
-	w.Header().Set("Content-Type", "text/json; charset=utf-8")
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -158,38 +194,16 @@ func getTweetAnalysis(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
 		return
 	}
-	prompt := getPromptFromTweetResponse(w, tweetResponse)
+	prompt := getPromptFromTweetResponse(tweetResponse)
+	fmt.Print(prompt)
 
 	_, _ = fmt.Fprintf(w, "\n\n请求 AI 中...一分钟还没有结果请重试 orz\n\n")
 	w.Flush()
-
-	completion := ""
-	var callback anthropic.StreamCallback = func(resp *anthropic.CompletionResponse) error {
-		completion = resp.Completion
-		_, _ = fmt.Fprintf(w, "Data:\n%s\n\n", completion)
-		w.Flush()
-		fmt.Printf("%s\n\n", completion)
-		return nil
+	if tweetResponse.Client == "claude" {
+		getStreamFromClaude(c, prompt)
 	}
-	client, _ := GetClaudeClient()
-	_ = CompletionWithoutSessionWithStreamByClaude(client, prompt, callback)
-}
-
-func Cors() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		method := c.Request.Method
-		origin := c.Request.Header.Get("Origin")
-		if origin != "" {
-			c.Header("Access-Control-Allow-Origin", "*") // 可将将 * 替换为指定的域名
-			c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
-			c.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
-			c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
-			c.Header("Access-Control-Allow-Credentials", "true")
-		}
-		if method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusNoContent)
-		}
-		c.Next()
+	if tweetResponse.Client == "openai" {
+		getStreamFromOpenAI(c, prompt)
 	}
 }
 
@@ -219,8 +233,7 @@ func getTweeterTimeline(twitterId string, count string, maxId *string) *TweetsRe
 		return nil
 	}
 	var tweetResponse TweetsResponse
-	err = json.Unmarshal(body, &tweetResponse.Tweets)
-	if err != nil {
+	if err = json.Unmarshal(body, &tweetResponse.Tweets); err != nil {
 		fmt.Println(err)
 		return nil
 	}
@@ -229,7 +242,7 @@ func getTweeterTimeline(twitterId string, count string, maxId *string) *TweetsRe
 func getTweetDetails(c *gin.Context) {
 	w := c.Writer
 
-	w.Header().Set("Content-Type", "text/json; charset=utf-8")
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -245,6 +258,24 @@ func getTweetDetails(c *gin.Context) {
 	c.JSON(http.StatusOK, tweetResponse)
 	return
 }
+func Cors() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		method := c.Request.Method
+		origin := c.Request.Header.Get("Origin")
+		if origin != "" {
+			c.Header("Access-Control-Allow-Origin", "*") // 可将将 * 替换为指定的域名
+			c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
+			c.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
+			c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
+			c.Header("Access-Control-Allow-Credentials", "true")
+		}
+		if method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+		}
+		c.Next()
+	}
+}
+
 func main() {
 	es := eventsource.New(nil, nil)
 	defer es.Close()
