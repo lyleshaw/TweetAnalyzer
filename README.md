@@ -28,6 +28,10 @@ go run ./service/index.go
 
 环境变量配置：
 
+```bash
+cp .env.example .env
+```
+
 ```text
 ANTHROPIC_API_KEY=sk-ant-xxx
 PORT=8080
