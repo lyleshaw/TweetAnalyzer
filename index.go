@@ -64,39 +64,6 @@ func GetClaudeClient() (*anthropic.Client, error) {
 	return anthropic.NewClient(AnthropicApiKey)
 }
 
-func sendRequestToGetTweets(twitterId string, maxId *string) *TweetsResponse {
-	url := "https://twitter-virtual-scroller.vercel.app/api/user_timeline/" + twitterId
-	if maxId != nil {
-		url += "?max_id=" + *maxId
-	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	var tweetResponse TweetsResponse
-	err = json.Unmarshal(body, &tweetResponse)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	return &tweetResponse
-}
-
 func getTweetPrompt(response TweetsResponse) (string, string) {
 	prompt := ""
 	maxId := ""
@@ -143,7 +110,7 @@ func getPromptFromTweetResponse(w gin.ResponseWriter, response TweetsResponse) s
 func getTweetAnalysis(c *gin.Context) {
 	w := c.Writer
 
-	w.Header().Set("Content-Type", "text/json; charset=utf-8")
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -159,7 +126,7 @@ func getTweetAnalysis(c *gin.Context) {
 		return
 	}
 	prompt := getPromptFromTweetResponse(w, tweetResponse)
-
+	fmt.Print(prompt)
 	completion := ""
 	var callback anthropic.StreamCallback = func(resp *anthropic.CompletionResponse) error {
 		completion = resp.Completion
@@ -170,24 +137,6 @@ func getTweetAnalysis(c *gin.Context) {
 	}
 	client, _ := GetClaudeClient()
 	_ = CompletionWithoutSessionWithStreamByClaude(client, prompt, callback)
-}
-
-func Cors() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		method := c.Request.Method
-		origin := c.Request.Header.Get("Origin")
-		if origin != "" {
-			c.Header("Access-Control-Allow-Origin", "*") // 可将将 * 替换为指定的域名
-			c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
-			c.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
-			c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
-			c.Header("Access-Control-Allow-Credentials", "true")
-		}
-		if method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusNoContent)
-		}
-		c.Next()
-	}
 }
 
 // 查询用户timeline
@@ -216,8 +165,7 @@ func getTweeterTimeline(twitterId string, count string, maxId *string) *TweetsRe
 		return nil
 	}
 	var tweetResponse TweetsResponse
-	err = json.Unmarshal(body, &tweetResponse.Tweets)
-	if err != nil {
+	if err = json.Unmarshal(body, &tweetResponse.Tweets); err != nil {
 		fmt.Println(err)
 		return nil
 	}
@@ -226,7 +174,7 @@ func getTweeterTimeline(twitterId string, count string, maxId *string) *TweetsRe
 func getTweetDetails(c *gin.Context) {
 	w := c.Writer
 
-	w.Header().Set("Content-Type", "text/json; charset=utf-8")
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -242,6 +190,24 @@ func getTweetDetails(c *gin.Context) {
 	c.JSON(http.StatusOK, tweetResponse)
 	return
 }
+func Cors() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		method := c.Request.Method
+		origin := c.Request.Header.Get("Origin")
+		if origin != "" {
+			c.Header("Access-Control-Allow-Origin", "*") // 可将将 * 替换为指定的域名
+			c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
+			c.Header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
+			c.Header("Access-Control-Expose-Headers", "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type")
+			c.Header("Access-Control-Allow-Credentials", "true")
+		}
+		if method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+		}
+		c.Next()
+	}
+}
+
 func main() {
 	es := eventsource.New(nil, nil)
 	defer es.Close()
