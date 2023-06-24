@@ -1,41 +1,36 @@
-import styled from "@emotion/styled";
-import React, {
-  Suspense,
-  useCallback,
-  useState,
-  useTransition,
-  useRef,
-} from "react";
-import { atomWithObservable } from "jotai/utils";
-import { useAtomValue, useSetAtom } from "jotai/react";
-import { atom } from "jotai/vanilla";
-import { Observable } from "rxjs";
-import Link from "next/link";
+import { Container, Card, Link, Row, Col, Text, Spacer, Input, Modal, Button, styled, Loading } from "@nextui-org/react";
+import React, { useId, Suspense, useCallback, useState, useTransition } from 'react'
+import { atomWithObservable } from 'jotai/utils'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai/react'
+import { atom } from 'jotai/vanilla'
+import { Observable } from 'rxjs'
+import { FormElement } from '@nextui-org/react/types/input/input-props'
+import { GrPowerCycle } from 'react-icons/gr'
 
-export const SendButton = styled.button`
-  background: "transparent";
-  border: none;
-  padding: 0;
-
-  width: 20px;
-  margin: "0 10px";
-  display: flex;
-  justify-content: center;
-
-  border-radius: 50%;
-  cursor: pointer;
-  transition: opacity 0.25s ease 0s, transform 0.25s ease 0s;
-  svg {
-    size: "100%";
-    padding: 4px;
-    transition: transform 0.25s ease 0s, opacity 200ms ease-in-out 50ms;
-    box-shadow: 0 5px 20px -5px rgba(0, 0, 0, 0.1);
-  }
-  &:hover {
-    opacity: 0.8;
-  }
-  &:active {
-    transform: scale(0.9);
+export const SendButton = styled('button', {
+  // reset button styles
+  background: 'transparent',
+  border: 'none',
+  padding: 0,
+  // styles
+  width: '24px',
+  margin: '0 10px',
+  dflex: 'center',
+  bg: '$primary',
+  borderRadius: '$rounded',
+  cursor: 'pointer',
+  transition: 'opacity 0.25s ease 0s, transform 0.25s ease 0s',
+  svg: {
+    size: '100%',
+    padding: '4px',
+    transition: 'transform 0.25s ease 0s, opacity 200ms ease-in-out 50ms',
+    boxShadow: '0 5px 20px -5px rgba(0, 0, 0, 0.1)',
+  },
+  '&:hover': {
+    opacity: 0.8
+  },
+  '&:active': {
+    transform: 'scale(0.9)',
     svg: {
       transform: translate(24px, -24px);
       opacity: 0;
@@ -83,8 +78,11 @@ const SendIcon = ({
 
 const twitterIdAtom = atom<string | null>(null);
 
+const contentQueryRequestIdStateAtom = atom<number>(0)
+
 const contentAtom = atomWithObservable((get) => {
-  const id = get(twitterIdAtom);
+  const id = get(twitterIdAtom)
+  get(contentQueryRequestIdStateAtom)
   return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController();
     if (id === null) {
@@ -132,7 +130,7 @@ const contentAtom = atomWithObservable((get) => {
         }
       }
 
-      fetchData().catch(subscriber.error);
+      fetchData().catch((err) => subscriber.error(err))
     }
 
     return () => {
@@ -147,18 +145,16 @@ const Content = () => {
 };
 
 export default function App() {
-  const [input, setInput] = useState("");
-  const modalRef = useRef<HTMLDialogElement>(null);
+  const [visible, setVisible] = useAtom(visibleAtom)
 
-  const [isLoading, startTransition] = useTransition();
-  const setTwitterId = useSetAtom(twitterIdAtom);
-  const handleInputChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      setInput(event.target.value);
-    },
-    []
-  );
-
+  const handler = useCallback(() => setVisible(true), [setVisible]);
+  const closeHandler = useCallback(() => {
+    setVisible(false);
+    console.log("closed");
+  }, [setVisible]);
+  const [isLoading, startTransition] = useTransition()
+  const [twitterId, setTwitterId] = useAtom(twitterIdAtom)
+  const setRequestId = useSetAtom(contentQueryRequestIdStateAtom)
   const handler = useCallback(() => {
     modalRef.current?.showModal();
   }, [modalRef]);
@@ -170,6 +166,12 @@ export default function App() {
       }
     });
   };
+
+  const handleRetry = () => {
+    startTransition(() => {
+      setRequestId((id) => id += 1)
+    })
+  }
 
   return (
     <div className="lg:m-12 sm:m-8 m-8">
@@ -199,6 +201,22 @@ export default function App() {
               className="input input-bordered join-item "
               placeholder="L_x_x_x_x_x"
               onChange={handleInputChange}
+              value={input}
+              contentRight={
+                !isLoading ? (
+                  input === twitterId ? (
+                    <SendButton onClick={handleRetry}>
+                      <GrPowerCycle />
+                    </SendButton>
+                  ) : (
+                    <SendButton onClick={handler}>
+                      <SendIcon />
+                    </SendButton>
+                  )
+                ) : (
+                  <Loading size="sm" css={{ margin: '.5em' }} />
+                )
+              }
             />
             <div className="btn join-item">
               {!isLoading ? (
