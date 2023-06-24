@@ -187,9 +187,9 @@ export default function App() {
         </div>
       </div>
 
-      <div className="card shadow-xl bg-base-100 w-auto">
+      <div className="card shadow-xl bg-base-100 w-auto text-gray-500">
         <div className="card-body text-center p-2 py-12">
-          <div className="text-gray-500">
+          <div>
             请输入 Twitter ID
             <div>[如 https://twitter.com/jack 即应输入 jack]</div>
           </div>
@@ -216,7 +216,7 @@ export default function App() {
             </span>
           )}
           <div className="justify-center item-center">
-            <div className="m-2 text-black font-semibold">
+            <div className="m-2 font-semibold">
               <Suspense
                 fallback={<span className="loading loading-spinner"></span>}
               >
