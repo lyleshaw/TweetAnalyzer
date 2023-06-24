@@ -7,10 +7,11 @@ import React, {
   useRef,
 } from 'react';
 import { atomWithObservable } from 'jotai/utils';
-import { useAtomValue, useSetAtom } from 'jotai/react';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai/react';
 import { atom } from 'jotai/vanilla';
 import { Observable } from 'rxjs';
 import Link from 'next/link';
+import { GrPowerCycle } from 'react-icons/gr';
 
 export const SendButton = styled.button`
   background: 'transparent';
@@ -152,19 +153,11 @@ const Content = () => {
 export default function App() {
   const [input, setInput] = useState('');
   const modalRef = useRef<HTMLDialogElement>(null);
-  const [visible, setVisible] = useAtom(visibleAtom);
 
-  const handler = useCallback(() => setVisible(true), [setVisible]);
-  const closeHandler = useCallback(() => {
-    setVisible(false);
-    console.log('closed');
-  }, [setVisible]);
   const [isLoading, startTransition] = useTransition();
   const [twitterId, setTwitterId] = useAtom(twitterIdAtom);
   const setRequestId = useSetAtom(contentQueryRequestIdStateAtom);
 
-  const [isLoading, startTransition] = useTransition();
-  const setTwitterId = useSetAtom(twitterIdAtom);
   const handleInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setInput(event.target.value);
@@ -176,7 +169,7 @@ export default function App() {
     modalRef.current?.showModal();
   }, [modalRef]);
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     startTransition(() => {
       if (input !== '') {
         setTwitterId(input);
@@ -184,11 +177,11 @@ export default function App() {
     });
   };
 
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     startTransition(() => {
       setRequestId((id) => (id += 1));
     });
-  };
+  }, []);
 
   return (
     <div className="lg:m-12 sm:m-8 m-8">
@@ -218,27 +211,14 @@ export default function App() {
               className="input input-bordered join-item "
               placeholder="L_x_x_x_x_x"
               onChange={handleInputChange}
-              value={input}
-              contentRight={
-                !isLoading ? (
-                  input === twitterId ? (
-                    <SendButton onClick={handleRetry}>
-                      <GrPowerCycle />
-                    </SendButton>
-                  ) : (
-                    <SendButton onClick={handler}>
-                      <SendIcon />
-                    </SendButton>
-                  )
-                ) : (
-                  <Loading size="sm" css={{ margin: '.5em' }} />
-                )
-              }
             />
             <div className="btn join-item">
               {!isLoading ? (
-                <SendButton onClick={handler} className="border-none">
-                  <SendIcon />
+                <SendButton
+                  onClick={input === twitterId ? handleRetry : handler}
+                  className="border-none"
+                >
+                  {input === twitterId ? <GrPowerCycle /> : <SendIcon />}
                 </SendButton>
               ) : (
                 <span className="loading loading-spinner"></span>
