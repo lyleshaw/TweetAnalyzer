@@ -58,7 +58,8 @@ func CompletionWithoutSessionWithStreamByClaude(client *anthropic.Client, prompt
 	}
 	return nil
 }
-func CompletionWithoudSessionWithStreamByOpenAI(ctx context.Context, client *openai.Client, prompt string) (*openai.ChatCompletionStream, error) {
+
+func CompletionWithoutSessionWithStreamByOpenAI(ctx context.Context, client *openai.Client, prompt string) (*openai.ChatCompletionStream, error) {
 	req := openai.ChatCompletionRequest{
 		Model:     openai.GPT3Dot5Turbo,
 		MaxTokens: 1000,
@@ -77,6 +78,7 @@ func CompletionWithoudSessionWithStreamByOpenAI(ctx context.Context, client *ope
 	}
 	return stream, nil
 }
+
 func GetClaudeClient() (*anthropic.Client, error) {
 	viper.SetConfigFile(".env")
 	_ = viper.ReadInConfig()
@@ -134,6 +136,7 @@ func getPromptFromTweetResponse(response TweetsResponse) string {
 
 	return prompt
 }
+
 func getStreamFromClaude(c *gin.Context, prompt string) {
 	w := c.Writer
 	completion := ""
@@ -154,7 +157,7 @@ func getStreamFromOpenAI(c *gin.Context, prompt string) {
 		c.JSON(http.StatusOK, gin.H{"error": err.Error()})
 		return
 	}
-	resp, err := CompletionWithoudSessionWithStreamByOpenAI(ctx, clientOpenai, prompt)
+	resp, err := CompletionWithoutSessionWithStreamByOpenAI(ctx, clientOpenai, prompt)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"error": err.Error()})
 		return
@@ -239,6 +242,7 @@ func getTweeterTimeline(twitterId string, count string, maxId *string) *TweetsRe
 	}
 	return &tweetResponse
 }
+
 func getTweetDetails(c *gin.Context) {
 	w := c.Writer
 
@@ -258,6 +262,13 @@ func getTweetDetails(c *gin.Context) {
 	c.JSON(http.StatusOK, tweetResponse)
 	return
 }
+
+func ping(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"message": "pong",
+	})
+}
+
 func Cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := c.Request.Method
@@ -283,6 +294,8 @@ func main() {
 	r.Use(Cors())
 	r.POST("/api/get_tweet_analysis", getTweetAnalysis)
 	r.GET("/api/get_tweet_details", getTweetDetails)
-	port := ":" + os.Getenv("PORT")
+	r.GET("/ping", ping)
+	//port := ":" + os.Getenv("PORT")
+	port := ":8080"
 	r.Run(port)
 }
