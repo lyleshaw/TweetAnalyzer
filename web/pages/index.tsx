@@ -5,13 +5,13 @@ import React, {
   useState,
   useTransition,
   useRef,
+  type SVGProps,
 } from 'react';
 import { atomWithObservable } from 'jotai/utils';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai/react';
 import { atom } from 'jotai/vanilla';
 import { Observable } from 'rxjs';
 import Link from 'next/link';
-import { GrPowerCycle } from 'react-icons/gr';
 
 export const SendButton = styled.button`
   background: 'transparent';
@@ -81,6 +81,26 @@ const SendIcon = ({
     </svg>
   );
 };
+
+// GrPowerCycle from react-icons
+const RetryIcon = (props: SVGProps<SVGSVGElement> = {}) => (
+  <svg
+    stroke="currentColor"
+    fill="currentColor"
+    strokeWidth="0"
+    viewBox="0 0 24 24"
+    height="24"
+    width="24"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      fill="none"
+      strokeWidth="2"
+      d="M20,8 C18.5343681,5.03213345 15.4860999,3 11.9637942,3 C7.01333514,3 3,7.02954545 3,12 M4,16 C5.4656319,18.9678666 8.51390007,21 12.0362058,21 C16.9866649,21 21,16.9704545 21,12 M9,16 L3,16 L3,22 M21,2 L21,8 L15,8"
+    ></path>
+  </svg>
+);
 
 const twitterIdAtom = atom<string | null>(null);
 
@@ -218,7 +238,7 @@ export default function App() {
                   onClick={input === twitterId ? handleRetry : handler}
                   className="border-none"
                 >
-                  {input === twitterId ? <GrPowerCycle /> : <SendIcon />}
+                  {input === twitterId ? <RetryIcon /> : <SendIcon />}
                 </SendButton>
               ) : (
                 <span className="loading loading-spinner"></span>
