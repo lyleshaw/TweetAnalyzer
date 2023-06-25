@@ -210,8 +210,9 @@ export default function App() {
           <div className="mx-auto join">
             <button className="btn join-item">ID</button>
             <input
-              className="input input-bordered join-item "
+              className="input input-bordered join-item"
               placeholder="L_x_x_x_x_x"
+              style={{ width: "100%" }}
               onChange={handleInputChange}
             />
             <div className="btn join-item">
