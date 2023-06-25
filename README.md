@@ -1,40 +1,57 @@
-# TweetAnalyzer
+# Cyber Fortune Teller(TweetAnalyzer)
 
 ## Description
 
-该项目抓取 Twitter 推文内容，调用 Claude 或 GPT3.5 进行分析而对推主做出评价。
+Grab tweets, call Claude or GPT3.5 for analysis and make comments on tweeters
 
-## Usage
+### Built With
 
-### 1. 安装依赖
+- [Next.js](https://nextjs.org/?ref=cal.com)
+- [React.js](https://reactjs.org/?ref=cal.com)
+- [Tailwind CSS](https://tailwindcss.com/?ref=cal.com)
+- [Daisy UI](https://daisyui.com/)
+- [Go](https://go.dev/)
 
-pre-env: go 1.18 + nodejs
+## Getting Started
 
-- 前端
+To get a local copy up and running, please follow these simple steps.
 
-```bash
-npm install
-npm run dev
-```
+### Prerequisites
 
-- 后端
+Here is what you need to be able to run Cal.com.
 
-```bash
-go mod tidy
-go run ./service/index.go
-```
+- Node.js (Version: >=18.x)
+- Go (Version: >= 1.18)
+- Pnpm ((recommended))
 
-### 2. 配置
+## Development
 
-环境变量配置：
+### Setup
 
-```bash
-cp .env.example .env
-```
+1. Clone the repo into a public GitHub repository (or fork https://github.com/lyleshaw/TweetAnalyzer/fork).
 
-```text
-ANTHROPIC_API_KEY=sk-ant-xxx
-PORT=8080
-API_KEY=sb-xxx
-BASE_URL=https://api.openai-sb.com/v1
-```
+    ```bash
+    git clone https://github.com/lyleshaw/TweetAnalyzer.git
+    ```
+2. Go to the project folder
+    ```bash
+    cd TweetAnalyzer
+    ```
+3. Install packages with pnpm
+4. Set up your .env file
+   1. Duplicate .env.example to .env
+      ```bash
+      cp .env.example .env
+      ```
+5. Run (in development mode)
+   - frontend
+        ```bash
+        pnpm  dev
+        ```
+   - frontend
+        ```bash
+        go mod tidy
+        go run ./service/index.go
+        ```
+
+
