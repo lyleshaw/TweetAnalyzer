@@ -11,7 +11,7 @@ import { useAtom, useAtomValue, useSetAtom } from "jotai/react";
 import { atom } from "jotai/vanilla";
 import { Observable } from "rxjs";
 import Link from "next/link";
-import { Model, ModelChange } from "../../pages/components/model-change";
+import { Model, ModelChange } from "../../components/model-change";
 
 export const SendButton = styled.button`
   background: "transparent";
