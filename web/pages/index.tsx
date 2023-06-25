@@ -5,14 +5,13 @@ import React, {
   useState,
   useTransition,
   useRef,
-  type ComponentPropsWithoutRef,
 } from "react";
-import { atomWithObservable, atomWithStorage } from "jotai/utils";
+import { atomWithObservable } from "jotai/utils";
 import { useAtom, useAtomValue, useSetAtom } from "jotai/react";
 import { atom } from "jotai/vanilla";
 import { Observable } from "rxjs";
 import Link from "next/link";
-import { Model, ModelChange } from "./components/model-change";
+import { Model, ModelChange } from "../../pages/components/model-change";
 
 export const SendButton = styled.button`
   background: "transparent";
@@ -83,40 +82,15 @@ const SendIcon = ({
   );
 };
 
-// GrPowerCycle from react-icons
-const RetryIcon = (props: ComponentPropsWithoutRef<"svg"> = {}) => (
-  <svg
-    stroke="currentColor"
-    fill="currentColor"
-    strokeWidth="0"
-    viewBox="0 0 24 24"
-    height="24"
-    width="24"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
-    <path
-      fill="none"
-      strokeWidth="2"
-      d="M20,8 C18.5343681,5.03213345 15.4860999,3 11.9637942,3 C7.01333514,3 3,7.02954545 3,12 M4,16 C5.4656319,18.9678666 8.51390007,21 12.0362058,21 C16.9866649,21 21,16.9704545 21,12 M9,16 L3,16 L3,22 M21,2 L21,8 L15,8"
-    ></path>
-  </svg>
-);
-
 const twitterIdAtom = atom<string | null>(null);
 const models: Record<string, string> = {
-  "Open-AI": "https://tweet-api-boe.aireview.tech/api/get_tweet_analysis",
+  "Open-AI": "https://weet-api-boe.aireview.tech/api/get_tweet_analysis",
   Claude: "https://tweet-api.aireview.tech/api/get_tweet_analysis",
 };
 const modelAtom = atom<string>("Claude");
 
-const contentQueryRequestIdStateAtom = atom<number>(0);
-
 const contentAtom = atomWithObservable((get) => {
   const id = get(twitterIdAtom);
-  const modelName = get(modelAtom);
-  const api = models[modelName];
-  get(contentQueryRequestIdStateAtom);
   return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController();
     if (id === null) {
@@ -124,13 +98,17 @@ const contentAtom = atomWithObservable((get) => {
       subscriber.next(null);
     } else {
       async function fetchData() {
-        const response = await fetch(`${api}?twitter_id=${id}`, {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          signal: abortController.signal,
-          method: "GET",
-        });
+        const response = await fetch(
+          "https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=" +
+            id,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            signal: abortController.signal,
+            method: "GET",
+          }
+        );
         if (!response.ok) {
           const error = await response.json();
           console.error(error.error);
@@ -160,7 +138,7 @@ const contentAtom = atomWithObservable((get) => {
         }
       }
 
-      fetchData().catch((err) => subscriber.error(err));
+      fetchData().catch(subscriber.error);
     }
 
     return () => {
@@ -179,15 +157,12 @@ export default function App() {
   const modalRef = useRef<HTMLDialogElement>(null);
 
   const [isLoading, startTransition] = useTransition();
-
   const setTwitterId = useSetAtom(twitterIdAtom);
   const [model, setModel] = useAtom(modelAtom);
   const onSelect = (model: Model) => {
     const name = Object.keys(model)[0];
     setModel(name);
   };
-  const [requestId, setRequestId] = useAtom(contentQueryRequestIdStateAtom);
-
   const handleInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setInput(event.target.value);
@@ -195,27 +170,21 @@ export default function App() {
     []
   );
 
-  const handleConfirm = useCallback(() => {
+  const handler = useCallback(() => {
+    modalRef.current?.showModal();
+  }, [modalRef]);
+
+  const handleConfirm = async () => {
     startTransition(() => {
       if (input !== "") {
         setTwitterId(input);
       }
-      setRequestId((id) => (id += 1));
     });
-  }, [input, setRequestId, setTwitterId]);
-
-  const handleClick = useCallback(() => {
-    if (!requestId) {
-      modalRef.current?.showModal();
-      return;
-    }
-
-    handleConfirm();
-  }, [handleConfirm, requestId]);
+  };
 
   return (
     <div className="m-8 lg:m-12 sm:m-8">
-      <div className="mt-24 mb-8 text-center">
+      <div className="mt-24 text-center">
         <div className="indicator">
           <ModelChange
             onSelect={onSelect}
@@ -235,7 +204,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="w-auto text-gray-500 shadow-xl card bg-base-100 dark:bg-slate-800 dark:text-slate-50">
+      <div className="w-auto text-gray-500 shadow-xl card bg-base-100">
         <div className="p-2 py-12 text-center card-body">
           <div>
             请输入 Twitter ID
@@ -244,20 +213,23 @@ export default function App() {
           <div className="mx-auto join">
             <button className="btn join-item">ID</button>
             <input
-              className="input input-bordered join-item"
+              className="input input-bordered join-item "
               placeholder="L_x_x_x_x_x"
-              style={{ width: "100%" }}
               onChange={handleInputChange}
             />
-            <div className="btn join-item">
+            <button
+              className="btn join-item"
+              onClick={handler}
+              disabled={isLoading}
+            >
               {!isLoading ? (
-                <SendButton onClick={handleClick} className="border-none">
-                  {requestId ? <RetryIcon /> : <SendIcon />}
+                <SendButton className="border-none">
+                  <SendIcon />
                 </SendButton>
               ) : (
                 <span className="loading loading-spinner"></span>
               )}
-            </div>
+            </button>
           </div>
           {isLoading && (
             <span className="mt-4">
@@ -275,36 +247,6 @@ export default function App() {
           </div>
         </div>
       </div>
-      <footer className="p-10 footer text-neutral-content">
-        <div>
-          <p>Cyber Fortune Teller</p>
-        </div>
-        <div>
-          <div className="grid grid-flow-col gap-4">
-            <Link href="https://twitter.com/L_x_x_x_x_x">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                className="fill-current"
-              >
-                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path>
-              </svg>
-            </Link>
-            <Link href="https://github.com/lyleshaw/TweetAnalyzer">
-              <svg
-                viewBox="0 0 16 16"
-                className="w-5 h-5"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      </footer>
 
       <dialog className="modal" ref={modalRef}>
         <form method="dialog" className="modal-box">
@@ -312,39 +254,15 @@ export default function App() {
             QaQ 可以请你帮我点一个&nbsp; <span>关注</span> &nbsp;耶
           </h3>
           <div className="py-4"></div>
-          <div className="flex">
-            你只需要点一下
-            <Link
-              href="https://twitter.com/L_x_x_x_x_x"
-              target="_blank"
-              className="inline-block px-2 link link-info"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                className="fill-current"
-              >
-                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path>
-              </svg>
-            </Link>
-            <span>就好啦，非常感谢~</span>
-          </div>
-          <div className="flex">
-            如果可以的话，可以再给我一个 🌟
-            <Link href="https://github.com/lyleshaw/TweetAnalyzer">
-              <svg
-                viewBox="0 0 16 16"
-                className="w-5 h-5"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-              </svg>
-            </Link>
-            <span>吗？~~</span>
-          </div>
+          <span>你只需要点一下</span>
+          <Link
+            href="https://twitter.com/L_x_x_x_x_x"
+            target="_blank"
+            className="inline-block link link-info"
+          >
+            &nbsp;这里&nbsp;
+          </Link>
+          <span>就好啦，非常感谢~</span>
           <div className="modal-action">
             <button className="btn" onClick={handleConfirm}>
               点这里继续～
