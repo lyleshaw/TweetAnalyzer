@@ -1,8 +1,8 @@
 
 import { useCallback, useState } from "react";
 export type Model = {
-    [x:string]: string
-}
+  [x: string]: string;
+};
 export type ModeChangeProps = {
     models: {
         [x:string]: string
