@@ -7,10 +7,11 @@ import React, {
   useRef,
 } from "react";
 import { atomWithObservable } from "jotai/utils";
-import { useAtomValue, useSetAtom } from "jotai/react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai/react";
 import { atom } from "jotai/vanilla";
 import { Observable } from "rxjs";
 import Link from "next/link";
+import { Model, ModelChange } from "./components/model-change";
 
 export const SendButton = styled.button`
   background: "transparent";
@@ -82,9 +83,16 @@ const SendIcon = ({
 };
 
 const twitterIdAtom = atom<string | null>(null);
+const models:Record<string, string> = {
+  'Open-AI': 'https://tweet-api-boe.aireview.tech/api/get_tweet_analysis',
+  'Claude': 'https://tweet-api.aireview.tech/api/get_tweet_analysis'
+}
+const modelAtom = atom<string>('Claude');
 
 const contentAtom = atomWithObservable((get) => {
   const id = get(twitterIdAtom);
+  const modelName = get(modelAtom);
+  const api = models[modelName];
   return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController();
     if (id === null) {
@@ -93,8 +101,7 @@ const contentAtom = atomWithObservable((get) => {
     } else {
       async function fetchData() {
         const response = await fetch(
-          "https://tweet-api.aireview.tech/api/get_tweet_analysis?twitter_id=" +
-            id,
+          `${api}?twitter_id=${id}`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -152,6 +159,11 @@ export default function App() {
 
   const [isLoading, startTransition] = useTransition();
   const setTwitterId = useSetAtom(twitterIdAtom);
+  const [model, setModel] = useAtom(modelAtom);
+  const onSelect = (model: Model) => {
+    const name = Object.keys(model)[0];
+    setModel(name);
+  };
   const handleInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setInput(event.target.value);
@@ -175,9 +187,11 @@ export default function App() {
     <div className="lg:m-12 sm:m-8 m-8">
       <div className="text-center mt-24">
         <div className="indicator">
-          <span className="indicator-item badge -right-4 -top-4 ">
-            OpenAI 版
-          </span>
+          <ModelChange onSelect={onSelect} defaultSelect={model} models={models}>
+            <div className="inline bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
+              {model}
+            </div>
+          </ModelChange>
           <div className="inline bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
             赛博算命师
           </div>
