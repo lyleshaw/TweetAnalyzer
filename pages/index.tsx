@@ -6,7 +6,7 @@ import React, {
   useTransition,
   useRef,
 } from "react";
-import { atomWithObservable } from "jotai/utils";
+import { atomWithObservable, atomWithStorage } from "jotai/utils";
 import { useAtomValue, useSetAtom } from "jotai/react";
 import { atom } from "jotai/vanilla";
 import { Observable } from "rxjs";
@@ -172,8 +172,8 @@ export default function App() {
   };
 
   return (
-    <div className="lg:m-12 sm:m-8 m-8">
-      <div className="text-center mt-24">
+    <div className="m-8 lg:m-12 sm:m-8">
+      <div className="mt-24 mb-8 text-center">
         <div className="indicator">
           <span className="indicator-item badge -right-4 -top-4 ">
             OpenAI 版
@@ -187,13 +187,13 @@ export default function App() {
         </div>
       </div>
 
-      <div className="card shadow-xl bg-base-100 w-auto text-gray-500">
-        <div className="card-body text-center p-2 py-12">
+      <div className="w-auto text-gray-500 shadow-xl card bg-base-100 dark:bg-slate-800 dark:text-slate-50">
+        <div className="p-2 py-12 text-center card-body">
           <div>
             请输入 Twitter ID
             <div>[如 https://twitter.com/jack 即应输入 jack]</div>
           </div>
-          <div className="join mx-auto">
+          <div className="mx-auto join">
             <button className="btn join-item">ID</button>
             <input
               className="input input-bordered join-item "
@@ -226,22 +226,76 @@ export default function App() {
           </div>
         </div>
       </div>
+      <footer className="p-10 footer text-neutral-content">
+        <div>
+          <p>Cyber Fortune Teller</p>
+        </div>
+        <div>
+          <div className="grid grid-flow-col gap-4">
+            <Link href="https://twitter.com/L_x_x_x_x_x">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                className="fill-current"
+              >
+                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path>
+              </svg>
+            </Link>
+            <Link href="https://github.com/lyleshaw/TweetAnalyzer">
+              <svg
+                viewBox="0 0 16 16"
+                className="w-5 h-5"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </footer>
 
       <dialog className="modal" ref={modalRef}>
         <form method="dialog" className="modal-box">
-          <h3 className="font-bold text-lg">
+          <h3 className="text-lg font-bold">
             QaQ 可以请你帮我点一个&nbsp; <span>关注</span> &nbsp;耶
           </h3>
           <div className="py-4"></div>
-          <span>你只需要点一下</span>
-          <Link
-            href="https://twitter.com/L_x_x_x_x_x"
-            target="_blank"
-            className="inline-block link link-info"
-          >
-            &nbsp;这里&nbsp;
-          </Link>
-          <span>就好啦，非常感谢~</span>
+          <div className="flex">
+            你只需要点一下
+            <Link
+              href="https://twitter.com/L_x_x_x_x_x"
+              target="_blank"
+              className="inline-block px-2 link link-info"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                className="fill-current"
+              >
+                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path>
+              </svg>
+            </Link>
+            <span>就好啦，非常感谢~</span>
+          </div>
+          <div className="flex">
+            如果可以的话，可以再给我一个 🌟
+            <Link href="https://github.com/lyleshaw/TweetAnalyzer">
+              <svg
+                viewBox="0 0 16 16"
+                className="w-5 h-5"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+            </Link>
+            <span>吗？~~</span>
+          </div>
           <div className="modal-action">
             <button className="btn" onClick={handleConfirm}>
               点这里继续～
