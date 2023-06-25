@@ -48,7 +48,7 @@ Here is what you need to be able to run Cal.com.
         ```bash
         pnpm  dev
         ```
-   - frontend
+   - rearend
         ```bash
         go mod tidy
         go run ./service/index.go
