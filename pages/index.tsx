@@ -5,6 +5,7 @@ import React, {
   useState,
   useTransition,
   useRef,
+  type ComponentPropsWithoutRef,
 } from "react";
 import { atomWithObservable, atomWithStorage } from "jotai/utils";
 import { useAtom, useAtomValue, useSetAtom } from "jotai/react";
@@ -82,17 +83,40 @@ const SendIcon = ({
   );
 };
 
+// GrPowerCycle from react-icons
+const RetryIcon = (props: ComponentPropsWithoutRef<"svg"> = {}) => (
+  <svg
+    stroke="currentColor"
+    fill="currentColor"
+    strokeWidth="0"
+    viewBox="0 0 24 24"
+    height="24"
+    width="24"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      fill="none"
+      strokeWidth="2"
+      d="M20,8 C18.5343681,5.03213345 15.4860999,3 11.9637942,3 C7.01333514,3 3,7.02954545 3,12 M4,16 C5.4656319,18.9678666 8.51390007,21 12.0362058,21 C16.9866649,21 21,16.9704545 21,12 M9,16 L3,16 L3,22 M21,2 L21,8 L15,8"
+    ></path>
+  </svg>
+);
+
 const twitterIdAtom = atom<string | null>(null);
-const models:Record<string, string> = {
-  'Open-AI': 'https://tweet-api-boe.aireview.tech/api/get_tweet_analysis',
-  'Claude': 'https://tweet-api.aireview.tech/api/get_tweet_analysis'
-}
-const modelAtom = atom<string>('Claude');
+const models: Record<string, string> = {
+  "Open-AI": "https://tweet-api-boe.aireview.tech/api/get_tweet_analysis",
+  Claude: "https://tweet-api.aireview.tech/api/get_tweet_analysis",
+};
+const modelAtom = atom<string>("Claude");
+
+const contentQueryRequestIdStateAtom = atom<number>(0);
 
 const contentAtom = atomWithObservable((get) => {
   const id = get(twitterIdAtom);
   const modelName = get(modelAtom);
   const api = models[modelName];
+  get(contentQueryRequestIdStateAtom);
   return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController();
     if (id === null) {
@@ -100,16 +124,13 @@ const contentAtom = atomWithObservable((get) => {
       subscriber.next(null);
     } else {
       async function fetchData() {
-        const response = await fetch(
-          `${api}?twitter_id=${id}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-            signal: abortController.signal,
-            method: "GET",
-          }
-        );
+        const response = await fetch(`${api}?twitter_id=${id}`, {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          signal: abortController.signal,
+          method: "GET",
+        });
         if (!response.ok) {
           const error = await response.json();
           console.error(error.error);
@@ -139,7 +160,7 @@ const contentAtom = atomWithObservable((get) => {
         }
       }
 
-      fetchData().catch(subscriber.error);
+      fetchData().catch((err) => subscriber.error(err));
     }
 
     return () => {
@@ -158,12 +179,15 @@ export default function App() {
   const modalRef = useRef<HTMLDialogElement>(null);
 
   const [isLoading, startTransition] = useTransition();
+
   const setTwitterId = useSetAtom(twitterIdAtom);
   const [model, setModel] = useAtom(modelAtom);
   const onSelect = (model: Model) => {
     const name = Object.keys(model)[0];
     setModel(name);
   };
+  const [requestId, setRequestId] = useAtom(contentQueryRequestIdStateAtom);
+
   const handleInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setInput(event.target.value);
@@ -171,23 +195,33 @@ export default function App() {
     []
   );
 
-  const handler = useCallback(() => {
-    modalRef.current?.showModal();
-  }, [modalRef]);
-
-  const handleConfirm = async () => {
+  const handleConfirm = useCallback(() => {
     startTransition(() => {
       if (input !== "") {
         setTwitterId(input);
       }
+      setRequestId((id) => (id += 1));
     });
-  };
+  }, [input, setRequestId, setTwitterId]);
+
+  const handleClick = useCallback(() => {
+    if (!requestId) {
+      modalRef.current?.showModal();
+      return;
+    }
+
+    handleConfirm();
+  }, [handleConfirm, requestId]);
 
   return (
     <div className="m-8 lg:m-12 sm:m-8">
       <div className="mt-24 mb-8 text-center">
         <div className="indicator">
-          <ModelChange onSelect={onSelect} defaultSelect={model} models={models}>
+          <ModelChange
+            onSelect={onSelect}
+            defaultSelect={model}
+            models={models}
+          >
             <div className="inline bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
               {model}
             </div>
@@ -217,8 +251,8 @@ export default function App() {
             />
             <div className="btn join-item">
               {!isLoading ? (
-                <SendButton onClick={handler} className="border-none">
-                  <SendIcon />
+                <SendButton onClick={handleClick} className="border-none">
+                  {requestId ? <RetryIcon /> : <SendIcon />}
                 </SendButton>
               ) : (
                 <span className="loading loading-spinner"></span>
