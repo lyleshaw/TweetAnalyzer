@@ -5,9 +5,10 @@ import React, {
   useState,
   useTransition,
   useRef,
+  type SVGProps,
 } from "react";
 import { atomWithObservable } from "jotai/utils";
-import { useAtomValue, useSetAtom } from "jotai/react";
+import { useAtom, useAtomValue, useSetAtom } from "jotai/react";
 import { atom } from "jotai/vanilla";
 import { Observable } from "rxjs";
 import Link from "next/link";
@@ -81,10 +82,33 @@ const SendIcon = ({
   );
 };
 
+// GrPowerCycle from react-icons
+const RetryIcon = (props: SVGProps<SVGSVGElement> = {}) => (
+  <svg
+    stroke="currentColor"
+    fill="currentColor"
+    strokeWidth="0"
+    viewBox="0 0 24 24"
+    height="24"
+    width="24"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path
+      fill="none"
+      strokeWidth="2"
+      d="M20,8 C18.5343681,5.03213345 15.4860999,3 11.9637942,3 C7.01333514,3 3,7.02954545 3,12 M4,16 C5.4656319,18.9678666 8.51390007,21 12.0362058,21 C16.9866649,21 21,16.9704545 21,12 M9,16 L3,16 L3,22 M21,2 L21,8 L15,8"
+    ></path>
+  </svg>
+);
+
 const twitterIdAtom = atom<string | null>(null);
+
+const contentQueryRequestIdStateAtom = atom<number>(0);
 
 const contentAtom = atomWithObservable((get) => {
   const id = get(twitterIdAtom);
+  get(contentQueryRequestIdStateAtom);
   return new Observable<string | null>((subscriber) => {
     const abortController = new AbortController();
     if (id === null) {
@@ -132,7 +156,7 @@ const contentAtom = atomWithObservable((get) => {
         }
       }
 
-      fetchData().catch(subscriber.error);
+      fetchData().catch((err) => subscriber.error(err));
     }
 
     return () => {
@@ -151,7 +175,9 @@ export default function App() {
   const modalRef = useRef<HTMLDialogElement>(null);
 
   const [isLoading, startTransition] = useTransition();
-  const setTwitterId = useSetAtom(twitterIdAtom);
+  const [twitterId, setTwitterId] = useAtom(twitterIdAtom);
+  const setRequestId = useSetAtom(contentQueryRequestIdStateAtom);
+
   const handleInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setInput(event.target.value);
@@ -163,13 +189,19 @@ export default function App() {
     modalRef.current?.showModal();
   }, [modalRef]);
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     startTransition(() => {
       if (input !== "") {
         setTwitterId(input);
       }
     });
   };
+
+  const handleRetry = useCallback(() => {
+    startTransition(() => {
+      setRequestId((id) => (id += 1));
+    });
+  }, []);
 
   return (
     <div className="lg:m-12 sm:m-8 m-8">
@@ -202,8 +234,11 @@ export default function App() {
             />
             <div className="btn join-item">
               {!isLoading ? (
-                <SendButton onClick={handler} className="border-none">
-                  <SendIcon />
+                <SendButton
+                  onClick={input === twitterId ? handleRetry : handler}
+                  className="border-none"
+                >
+                  {input === twitterId ? <RetryIcon /> : <SendIcon />}
                 </SendButton>
               ) : (
                 <span className="loading loading-spinner"></span>
