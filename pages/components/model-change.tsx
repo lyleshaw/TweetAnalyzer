@@ -1,4 +1,3 @@
-import styled from "@emotion/styled";
 import { useCallback, useState } from "react";
 export type Model = {
   [x: string]: string;
@@ -11,37 +10,6 @@ export type ModeChangeProps = {
   onSelect?: (mode: Model) => void;
   children?: any;
 };
-export const ModelChangeWrapper = styled.div`
-  display: inline-block;
-  cursor: pointer;
-`;
-
-export const ModelChangeMenu = styled.ul`
-  width: 250px;
-  height: auto;
-  background-color: #fff;
-  borderradius: "$md";
-  text-align: left;
-  padding: 4px;
-  margin: 0 auto;
-  border: "$accents2 1px solid";
-`;
-const Model = styled.li`
-  padding: "$3 $3";
-  margin: "0";
-  list-style: none;
-  box-sizing: border-box;
-  border-radius: "$md";
-  cursor: "pointer";
-  margin-bottom: "$2";
-  &[data-active="true"] {
-    background: "$gray100";
-  }
-  &:hover {
-    background: "$gray100";
-  }
-`;
-
 export function ModelChange(props: ModeChangeProps) {
   const { models: modes } = props;
   const [visible, setVisible] = useState(false);
@@ -59,26 +27,48 @@ export function ModelChange(props: ModeChangeProps) {
         [name]: modes[name],
       });
     },
-    [setSelectedName]
+    [modes, props]
   );
   return (
-    <ModelChangeWrapper onClick={handleClick}>
+    <div
+      onClick={handleClick}
+      className={"inline-block cursor-pointer relative"}
+    >
       {props.children}
       {visible && (
-        <ModelChangeMenu>
+        <ul
+          className={`
+                        w-full max-w-xs h-auto bg-white rounded-lg text-left p-4
+                        mb-0 mt-2 mx-auto border-gray-200 border border-solid
+                        absolute z-10 shadow-sm
+                        dark:bg-gray-900 dark:border-0
+                    `}
+        >
           {Object.entries(modes).map(([name, api]) => {
             return (
-              <Model
+              <li
                 key={name}
+                className={`
+                                        p-3 m-0 list-none box-border rounded-md cursor-pointer transition-all
+                                        mb-2 hover:bg-gray-200 text-gray-700 ${
+                                          name === selectedName
+                                            ? "bg-gray-200 text-gray-950 font-semibold"
+                                            : ""
+                                        }
+                                        dark:hover:bg-gray-800 dark:text-gray-200 ${
+                                          name === selectedName
+                                            ? "dark:bg-gray-800 dark:text-gray-100"
+                                            : ""
+                                        }
+                                        `}
                 onClick={() => handleSelect(name)}
-                data-active={name === selectedName}
               >
                 {name}
-              </Model>
+              </li>
             );
           })}
-        </ModelChangeMenu>
+        </ul>
       )}
-    </ModelChangeWrapper>
+    </div>
   );
 }
