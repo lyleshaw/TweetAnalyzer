@@ -178,7 +178,6 @@ func getStreamFromOpenAI(c *gin.Context, prompt string) {
 	}
 }
 
-// 改为post发送数据
 func getTweetAnalysis(c *gin.Context) {
 	w := c.Writer
 
@@ -188,16 +187,28 @@ func getTweetAnalysis(c *gin.Context) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	_, _ = w.(http.Flusher)
-	var tweetResponse TweetsResponse
-	if err := c.ShouldBindJSON(&tweetResponse); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON data"})
+	twitterId := c.Query("twitter_id")
+	count := c.Query("count")
+	client := c.Query("client")
+
+	if twitterId == "" {
+		c.JSON(http.StatusOK, gin.H{"error": "Wrong Params"})
 		return
 	}
+	if count == "" {
+		count = "30"
+	}
+	if client == "" {
+		client = "claude"
+	}
+	fmt.Fprintf(w, "\n\n抓取数据中...本次抓取量%s条\n\n", count)
+	tweetResponse := getTweeterTimeline(twitterId, count, nil)
+
 	if len(tweetResponse.Tweets) == 0 {
 		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
 		return
 	}
-	prompt := getPromptFromTweetResponse(tweetResponse)
+	prompt := getPromptFromTweetResponse(*tweetResponse)
 	fmt.Print(prompt)
 
 	_, _ = fmt.Fprintf(w, "\n\n请求 AI 中...一分钟还没有结果请重试 orz\n\n")
@@ -292,7 +303,8 @@ func main() {
 	defer es.Close()
 	r := gin.Default()
 	r.Use(Cors())
-	r.POST("/api/get_tweet_analysis", getTweetAnalysis)
+	r.GET("/api/get_tweet_analysis", getTweetAnalysis)
+	// r.POST("/api/get_tweet_analysis", getTweetAnalysis)
 	r.GET("/api/get_tweet_details", getTweetDetails)
 	r.GET("/ping", ping)
 	//port := ":" + os.Getenv("PORT")
