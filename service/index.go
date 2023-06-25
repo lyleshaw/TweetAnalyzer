@@ -263,8 +263,13 @@ func getTweetDetails(c *gin.Context) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	_, _ = w.(http.Flusher)
 	twitterId := c.Query("twitter_id")
+	if twitterId == "" {
+		c.JSON(http.StatusOK, gin.H{"error": "Params Error"})
+	}
 	count := c.Query("count")
-
+	if count == "" {
+		count = "30"
+	}
 	tweetResponse := getTweeterTimeline(twitterId, count, nil)
 	if len(tweetResponse.Tweets) == 0 {
 		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
