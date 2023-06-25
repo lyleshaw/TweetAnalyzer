@@ -83,11 +83,11 @@ const SendIcon = ({
 };
 
 const twitterIdAtom = atom<string | null>(null);
-const models:Record<string, string> = {
-  'Open-AI': 'https://weet-api-boe.aireview.tech/api/get_tweet_analysis',
-  'Claude': 'https://tweet-api.aireview.tech/api/get_tweet_analysis'
-}
-const modelAtom = atom<string>('Claude');
+const models: Record<string, string> = {
+  "Open-AI": "https://weet-api-boe.aireview.tech/api/get_tweet_analysis",
+  Claude: "https://tweet-api.aireview.tech/api/get_tweet_analysis",
+};
+const modelAtom = atom<string>("Claude");
 
 const contentAtom = atomWithObservable((get) => {
   const id = get(twitterIdAtom);
@@ -183,10 +183,14 @@ export default function App() {
   };
 
   return (
-    <div className="lg:m-12 sm:m-8 m-8">
-      <div className="text-center mt-24">
+    <div className="m-8 lg:m-12 sm:m-8">
+      <div className="mt-24 text-center">
         <div className="indicator">
-          <ModelChange onSelect={onSelect} defaultSelect={model} models={models}>
+          <ModelChange
+            onSelect={onSelect}
+            defaultSelect={model}
+            models={models}
+          >
             <div className="inline bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
               {model}
             </div>
@@ -200,28 +204,32 @@ export default function App() {
         </div>
       </div>
 
-      <div className="card shadow-xl bg-base-100 w-auto text-gray-500">
-        <div className="card-body text-center p-2 py-12">
+      <div className="w-auto text-gray-500 shadow-xl card bg-base-100">
+        <div className="p-2 py-12 text-center card-body">
           <div>
             请输入 Twitter ID
             <div>[如 https://twitter.com/jack 即应输入 jack]</div>
           </div>
-          <div className="join mx-auto">
+          <div className="mx-auto join">
             <button className="btn join-item">ID</button>
             <input
               className="input input-bordered join-item "
               placeholder="L_x_x_x_x_x"
               onChange={handleInputChange}
             />
-            <div className="btn join-item">
+            <button
+              className="btn join-item"
+              onClick={handler}
+              disabled={isLoading}
+            >
               {!isLoading ? (
-                <SendButton onClick={handler} className="border-none">
+                <SendButton className="border-none">
                   <SendIcon />
                 </SendButton>
               ) : (
                 <span className="loading loading-spinner"></span>
               )}
-            </div>
+            </button>
           </div>
           {isLoading && (
             <span className="mt-4">
@@ -242,7 +250,7 @@ export default function App() {
 
       <dialog className="modal" ref={modalRef}>
         <form method="dialog" className="modal-box">
-          <h3 className="font-bold text-lg">
+          <h3 className="text-lg font-bold">
             QaQ 可以请你帮我点一个&nbsp; <span>关注</span> &nbsp;耶
           </h3>
           <div className="py-4"></div>
