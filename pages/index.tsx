@@ -13,6 +13,7 @@ import { atom } from "jotai/vanilla";
 import { Observable } from "rxjs";
 import Link from "next/link";
 import { Model, ModelChange } from "../components/model-change";
+import ReactMarkdown from 'react-markdown';
 
 export const SendButton = styled.button`
   background: "transparent";
