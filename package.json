@@ -7,7 +7,8 @@
     "dev": "next dev",
     "preinstall": "npx only-allow pnpm",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "export": "next build && next export"
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
