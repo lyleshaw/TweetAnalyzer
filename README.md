@@ -54,4 +54,12 @@ Here is what you need to be able to run Cal.com.
         go run ./service/index.go
         ```
 
+## Contribution
 
+### Commit
+
+All commit message should startwith ```feat: ```/```bugfix:```/```refactor: ```/```docs:```/```style```
+
+### Branch
+
+All branch should startwith ```feature/xxx``` etc.
