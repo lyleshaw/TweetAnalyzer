@@ -4,6 +4,14 @@
 
 Grab tweets, call Claude or GPT3.5 for analysis and make comments on tweeters
 
+<div align="center">
+    &nbsp;
+    <a href="https://t.me/tweet_analyzer"><img src="https://img.shields.io/badge/-Telegram-red?style=social&logo=telegram" height=25></a>
+    &nbsp;
+    <a href="https://twitter.com/L_x_x_x_x_x"><img src="https://img.shields.io/badge/-Twitter-red?style=social&logo=twitter" height=25></a>
+    &nbsp;
+</div>
+
 ### Built With
 
 - [Next.js](https://nextjs.org/?ref=cal.com)
@@ -48,10 +56,27 @@ Here is what you need to be able to run Cal.com.
         ```bash
         pnpm  dev
         ```
-   - frontend
+   - rearend
         ```bash
         go mod tidy
         go run ./service/index.go
         ```
 
+## Deployment
 
+### Vercel
+
+You can use Vercel to deploy the front end, just click the button below
+
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Flyleshaw%2FTweetAnalyzer)
+
+## Contribution
+
+### Commit
+
+All commit message should startwith ```feat: ```/```bugfix:```/```refactor: ```/```docs:```/```style```
+
+### Branch
+
+All branch should startwith ```feature/xxx``` etc.
