@@ -216,19 +216,27 @@ export default function App() {
   return (
     <div className="m-8 lg:m-12 sm:m-8">
       <div className="mt-24 mb-8 text-center">
-        <div className="indicator">
-          <ModelChange
-            onSelect={onSelect}
-            defaultSelect={model}
-            models={models}
-          >
-            <div className="inline bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
-              {model}
+        <ModelChange
+          onSelect={onSelect}
+          defaultSelect={model}
+          models={models}
+        >
+          <div className="inline flex">
+            <div className="flex flex-col">
+              <div className="bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
+                {model}
+              </div>
+              <p className="inline bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-xs tracking-tight text-transparent">
+                点击可切换模型
+              </p>
             </div>
-          </ModelChange>
-          <div className="inline bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
-            赛博算命师
+            <p className="bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-sm tracking-tight text-transparent">
+              版
+            </p>
           </div>
+        </ModelChange>
+        <div className="block bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
+          赛博算命师
         </div>
         <div className="block bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
           Cyber Fortune Teller
