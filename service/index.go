@@ -2,16 +2,18 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
+	"github.com/dghubble/go-twitter/twitter"
+	"github.com/dghubble/oauth1"
 	"github.com/gin-gonic/gin"
 	"github.com/madebywelch/anthropic-go/pkg/anthropic"
 	"github.com/sashabaranov/go-openai"
@@ -19,29 +21,7 @@ import (
 	"gopkg.in/antage/eventsource.v1"
 )
 
-type TweetsResponse struct {
-	Tweets []struct {
-		CreatedAt string `json:"created_at"`
-		Text      string `json:"text"`
-		ID        int64  `json:"id"`
-		Entities  struct {
-			UserMentions []struct {
-				ScreenName string `json:"screen_name"`
-			} `json:"user_mentions"`
-		} `json:"entities,omitempty"`
-		User struct {
-			Name            string `json:"name"`
-			ScreenName      string `json:"screen_name"`
-			Description     string `json:"description"`
-			FollowersCount  int    `json:"followers_count"`
-			FriendsCount    int    `json:"friends_count"`
-			CreatedAt       string `json:"created_at"`
-			FavouritesCount int    `json:"favourites_count"`
-			StatusesCount   int    `json:"statuses_count"`
-		} `json:"user"`
-	} `json:"tweets"`
-	Client string `json:"client"`
-}
+var twi_cli *twitter.Client = setTwitterClient()
 
 func CompletionWithoutSessionWithStreamByClaude(client *anthropic.Client, prompt string, callBack anthropic.StreamCallback) error {
 	_, err := client.Complete(&anthropic.CompletionRequest{
@@ -88,6 +68,7 @@ func GetClaudeClient() (*anthropic.Client, error) {
 	AnthropicApiKey := viper.GetString("ANTHROPIC_API_KEY")
 	return anthropic.NewClient(AnthropicApiKey)
 }
+
 func GetOpenAIClient() (context.Context, *openai.Client, error) {
 	ctx := context.Background()
 	config := openai.DefaultConfig("sb-4d2ed1a575db4bd4e1df1c377252a6ae")
@@ -95,10 +76,11 @@ func GetOpenAIClient() (context.Context, *openai.Client, error) {
 	fmt.Printf("base url: %s\n", config.BaseURL)
 	return ctx, openai.NewClientWithConfig(config), nil
 }
-func getTweetPrompt(response TweetsResponse) (string, string) {
+
+func getTweetPrompt(response []twitter.Tweet) (string, string) {
 	prompt := ""
 	maxId := ""
-	for _, tweet := range response.Tweets {
+	for _, tweet := range response {
 		var tweetPrompt string
 		tweetPrompt += "这条推文的作者是" + tweet.User.Name + "@" + tweet.User.ScreenName + "。\n"
 		tweetPrompt += "这条推文的内容是：{{" + tweet.Text + "}}\n"
@@ -116,16 +98,16 @@ func getTweetPrompt(response TweetsResponse) (string, string) {
 	return prompt, maxId
 }
 
-func getPromptFromTweetResponse(response TweetsResponse) string {
+func getPromptFromTweetResponse(response []twitter.Tweet) string {
 	prompt := "你是一个专业的心理咨询师。你的工作是从一个人所发表的推文里专业而详细的分析其性格并分点给出依据，下面是你所需要分析的推主的一些信息：\n\n"
-	prompt += "这个推主的名字是" + response.Tweets[0].User.Name + "；" +
-		"ID 是" + response.Tweets[0].User.ScreenName + "；" +
-		"自我描述是{{" + response.Tweets[0].User.Description + "}}；" +
-		"拥有" + strconv.Itoa(response.Tweets[0].User.FollowersCount) + "个粉丝；" +
-		"关注了" + strconv.Itoa(response.Tweets[0].User.FriendsCount) + "个人；" +
-		"发表了" + strconv.Itoa(response.Tweets[0].User.StatusesCount) + "条推文；" +
-		"喜欢了" + strconv.Itoa(response.Tweets[0].User.FavouritesCount) + "条推文；" +
-		"注册于" + response.Tweets[0].User.CreatedAt + "。\n"
+	prompt += "这个推主的名字是" + response[0].User.Name + "；" +
+		"ID 是" + response[0].User.ScreenName + "；" +
+		"自我描述是{{" + response[0].User.Description + "}}；" +
+		"拥有" + strconv.Itoa(response[0].User.FollowersCount) + "个粉丝；" +
+		"关注了" + strconv.Itoa(response[0].User.FriendsCount) + "个人；" +
+		"发表了" + strconv.Itoa(response[0].User.StatusesCount) + "条推文；" +
+		"喜欢了" + strconv.Itoa(response[0].User.FavouritesCount) + "条推文；" +
+		"注册于" + response[0].User.CreatedAt + "。\n"
 
 	tweetPrompt, maxId := getTweetPrompt(response)
 	prompt += tweetPrompt
@@ -150,6 +132,7 @@ func getStreamFromClaude(c *gin.Context, prompt string) {
 	client, _ := GetClaudeClient()
 	_ = CompletionWithoutSessionWithStreamByClaude(client, prompt, callback)
 }
+
 func getStreamFromOpenAI(c *gin.Context, prompt string) {
 	w := c.Writer
 	ctx, clientOpenai, err := GetOpenAIClient()
@@ -180,7 +163,6 @@ func getStreamFromOpenAI(c *gin.Context, prompt string) {
 
 func getTweetAnalysis(c *gin.Context) {
 	w := c.Writer
-
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -190,93 +172,125 @@ func getTweetAnalysis(c *gin.Context) {
 	twitterId := c.Query("twitter_id")
 	count := c.Query("count")
 	client := c.Query("client")
-
+	keyword := c.Query("keyword")
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
 	if twitterId == "" {
 		c.JSON(http.StatusOK, gin.H{"error": "Wrong Params"})
 		return
-	}
-	if count == "" {
-		count = "30"
 	}
 	if client == "" {
 		client = "claude"
 	}
 	fmt.Fprintf(w, "\n\n抓取数据中...本次抓取量%s条\n\n", count)
-	tweetResponse := getTweeterTimeline(twitterId, count, nil)
-
-	if len(tweetResponse.Tweets) == 0 {
+	tweetResponse, err := getTweets(twitterId, count, keyword, startDate, endDate, twi_cli)
+	if err != nil || len(tweetResponse) == 0 {
 		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
 		return
 	}
-	prompt := getPromptFromTweetResponse(*tweetResponse)
+	prompt := getPromptFromTweetResponse(tweetResponse)
 	fmt.Print(prompt)
 
 	_, _ = fmt.Fprintf(w, "\n\n请求 AI 中...一分钟还没有结果请重试 orz\n\n")
 	w.Flush()
-	if tweetResponse.Client == "claude" {
+	if client == "claude" {
 		getStreamFromClaude(c, prompt)
 	}
-	if tweetResponse.Client == "openai" {
+	if client == "openai" {
 		getStreamFromOpenAI(c, prompt)
 	}
 }
 
-// 查询用户timeline
-func getTweeterTimeline(twitterId string, count string, maxId *string) *TweetsResponse {
-	url := "https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=" + twitterId + "&count=" + count
-	if maxId != nil {
-		url += "&max_id=" + *maxId
-	}
-	req, err := http.NewRequest("GET", url, nil)
+func getTweets(twitterId string, count string, keyword string, startDate string, endDate string, client *twitter.Client) ([]twitter.Tweet, error) {
+	cnt, err := strconv.Atoi(count)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
-	req.Header.Add("Authorization", "Bearer "+os.Getenv("TWITTER_BEARER_TOKEN"))
-	// 这里注意要添加一个TOKEN
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	fetchedTweets, err := getAmountTweets(twitterId, cnt, client)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	var tweetResponse TweetsResponse
-	if err = json.Unmarshal(body, &tweetResponse.Tweets); err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	return &tweetResponse
+	return filterTweets(fetchedTweets, keyword, startDate, endDate)
 }
 
-func getTweetDetails(c *gin.Context) {
-	w := c.Writer
+func getAmountTweets(twitterId string, count int, client *twitter.Client) ([]twitter.Tweet, error) {
+	var allTweets []twitter.Tweet
+	if count > 200 {
+		var maxId int64
+		for count > 0 {
+			var cnt int
+			if count > 200 {
+				cnt = 200
+			} else {
+				cnt = count
+			}
+			tweets, err := getTimeline(twitterId, cnt, maxId, client)
+			if err != nil {
+				return nil, err
+			}
+			allTweets = append(allTweets, tweets...)
+			count -= cnt
+		}
+	} else {
+		var err error
+		allTweets, err = getTimeline(twitterId, count, 0, client)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return allTweets, nil
+}
 
-	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	_, _ = w.(http.Flusher)
-	twitterId := c.Query("twitter_id")
-	if twitterId == "" {
-		c.JSON(http.StatusOK, gin.H{"error": "Params Error"})
+func getTimeline(twitterId string, count int, maxId int64, client *twitter.Client) ([]twitter.Tweet, error) {
+	var userTimelineParams twitter.UserTimelineParams
+	userTimelineParams.ScreenName = twitterId
+	userTimelineParams.Count = count
+	userTimelineParams.MaxID = maxId
+	tweets, resp, err := client.Timelines.UserTimeline(&userTimelineParams)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		fmt.Println("Error fetching the tweets")
+		return nil, err
 	}
-	count := c.Query("count")
-	if count == "" {
-		count = "30"
+	return tweets, err
+}
+
+func filterTweets(allTweets []twitter.Tweet, keyword string, startDate string, endDate string) ([]twitter.Tweet, error) {
+	var filteredDateTweets []twitter.Tweet
+	if startDate != "" && endDate != "" {
+		start, err := time.Parse("2006-01-02", startDate)
+		if err != nil {
+			return nil, err
+		}
+		end, err := time.Parse("2006-01-02", endDate)
+		if err != nil {
+			return nil, err
+		}
+		for _, tweet := range allTweets {
+			tweetDate, _ := tweet.CreatedAtTime()
+			if tweetDate.After(start) && tweetDate.Before(end) {
+				filteredDateTweets = append(filteredDateTweets, tweet)
+			}
+		}
+		fmt.Printf("Successfully filtered time, rest tweets: %d\n", len(filteredDateTweets))
 	}
-	tweetResponse := getTweeterTimeline(twitterId, count, nil)
-	if len(tweetResponse.Tweets) == 0 {
-		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
-		return
+	if keyword == "" {
+		return filteredDateTweets, nil
 	}
-	c.JSON(http.StatusOK, tweetResponse)
-	return
+	var filteredKeywordTweets []twitter.Tweet
+	for _, tweet := range filteredDateTweets {
+		if strings.Contains(tweet.Text, keyword) {
+			filteredKeywordTweets = append(filteredKeywordTweets, tweet)
+		}
+	}
+	return filteredKeywordTweets, nil
+}
+
+func setTwitterClient() *twitter.Client {
+	config := oauth1.NewConfig(os.Getenv("TW_CONSUMER_KEY"), os.Getenv("TW_CONSUMER_SECRET"))
+	token := oauth1.NewToken(os.Getenv("TW_ACCESS_TOKEN"), os.Getenv("TW_ACCESS_SECRET"))
+	httpClient := config.Client(oauth1.NoContext, token)
+	client := twitter.NewClient(httpClient)
+	return client
 }
 
 func ping(c *gin.Context) {
@@ -308,9 +322,8 @@ func main() {
 	defer es.Close()
 	r := gin.Default()
 	r.Use(Cors())
+
 	r.GET("/api/get_tweet_analysis", getTweetAnalysis)
-	// r.POST("/api/get_tweet_analysis", getTweetAnalysis)
-	r.GET("/api/get_tweet_details", getTweetDetails)
 	r.GET("/ping", ping)
 	//port := ":" + os.Getenv("PORT")
 	port := ":8080"
