@@ -224,11 +224,10 @@ export default function App() {
           <div className="inline flex content-center">
             <div className="flex items-center">
               <svg 
-                className="bi bi-caret-down-fill bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text" 
+                className="bi bi-caret-down-fill" 
                 xmlns="http://www.w3.org/2000/svg" 
                 width="16" 
                 height="16" 
-                fill="currentColor" 
                 viewBox="0 0 16 16">
                 <defs>
                   <radialGradient  id="trangle">
