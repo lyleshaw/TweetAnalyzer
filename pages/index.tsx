@@ -221,14 +221,29 @@ export default function App() {
           defaultSelect={model}
           models={models}
         >
-          <div className="inline flex">
-            <div className="flex flex-col">
+          <div className="inline flex content-center">
+            <div className="flex items-center">
+              <svg 
+                className="bi bi-caret-down-fill bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text" 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="16" 
+                height="16" 
+                fill="currentColor" 
+                viewBox="0 0 16 16">
+                <defs>
+                  <radialGradient  id="trangle">
+                      <stop offset="0%" stop-color="#006e3a" />
+                      <stop offset="100%" stop-color="#166bb5" />
+                  </radialGradient>
+                </defs>
+                <path 
+                  d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"
+                  stroke="none"
+                  fill="url(#trangle)"/>
+              </svg>
               <div className="bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-5xl tracking-tight text-transparent">
                 {model}
               </div>
-              <p className="inline bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-xs tracking-tight text-transparent">
-                点击可切换模型
-              </p>
             </div>
             <p className="bg-gradient-to-r from-[rgba(0,110,58,0.8)]  to-[rgba(22,107,181)] bg-clip-text font-display text-sm tracking-tight text-transparent">
               版
