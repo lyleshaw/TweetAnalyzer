@@ -132,7 +132,9 @@ func getPromptFromTweetResponse(response TweetsResponse) string {
 	fmt.Println(maxId)
 	//这里默认是前端回传了所有的需要的推文
 
-	prompt += "\n\n请你根据以上信息，分析这个推主的性格特点，并给出你的分析依据(即所引用的推文原文)。要求写出 500 字以上的分析内容，必须从 10 点以上论述，并在最后从多个维度总结推主是什么样的人。"
+	prompt += "\n\n请你根据以上信息，分析这个推主的性格特点。要求使用Markdown格式写出 500 字以上的分析内容，" + 
+			"必须列出十个以上的特点，并使用Markdown语法中的`>`引用推文原文，在下方给出你的分析依据(不包裹在引用中)，" + 
+			"并在最后从多个维度总结推主是什么样的人。"
 
 	return prompt
 }
@@ -255,8 +257,9 @@ func getTweetDetails(c *gin.Context) {
 	count := c.Query("count")
 
 	tweetResponse := getTweeterTimeline(twitterId, count, nil)
-	if len(tweetResponse.Tweets) == 0 {
-		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
+	// 由于getTweeterTimeline可能会返回nil，所以这里要判断一下，否则会有空指针异常(nil pointer dereference)
+	if tweetResponse == nil || len(tweetResponse.Tweets) == 0 {
+		c.JSON(http.StatusOK, gin.H{"error": "No tweets found or failed to fetch tweets"})
 		return
 	}
 	c.JSON(http.StatusOK, tweetResponse)

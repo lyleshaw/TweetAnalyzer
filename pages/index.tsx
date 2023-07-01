@@ -13,6 +13,7 @@ import { atom } from "jotai/vanilla";
 import { Observable } from "rxjs";
 import Link from "next/link";
 import { Model, ModelChange } from "../components/model-change";
+import ReactMarkdown from 'react-markdown';
 
 export const SendButton = styled.button`
   background: "transparent";
@@ -169,9 +170,37 @@ const contentAtom = atomWithObservable((get) => {
   });
 });
 
+const StyledMarkdown = styled(ReactMarkdown)`
+  /* 有序列表计数器重置 */
+  counter-reset: ordered-list;
+
+  /* 有序列表样式 */
+  ol {
+    list-style-type: none;
+  }
+
+  ol li::before {
+    counter-increment: ordered-list;
+    content: counter(ordered-list) ". ";
+    margin-right: 8px;
+  }
+
+  /* 引用样式 */
+  blockquote {
+    border-left: 4px solid #ccc;
+    padding-left: 1em;
+    margin: 0;
+    color: #666;
+  }
+`;
+
 const Content = () => {
   const content = useAtomValue(contentAtom);
-  return <>{content}</>;
+  return (
+    <div>
+      <StyledMarkdown>{content}</StyledMarkdown>
+    </div>
+  );
 };
 
 export default function App() {
@@ -286,14 +315,16 @@ export default function App() {
               由于当前请求人数较多，可能需要等待一段时间~
             </span>
           )}
-          <div className="justify-center item-center">
-            <div className="m-2 font-semibold">
-              <Suspense
-                fallback={<span className="loading loading-spinner"></span>}
-              >
-                <Content />
-              </Suspense>
-            </div>
+          
+        </div>
+        {/* 文字不应居中 */}
+        <div className="justify-center item-center">
+          <div className="m-2 font-semibold">
+            <Suspense
+              fallback={<span className="loading loading-spinner"></span>}
+            >
+              <Content />
+            </Suspense>
           </div>
         </div>
       </div>
