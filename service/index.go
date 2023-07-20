@@ -11,6 +11,7 @@ import (
 	"net/http"
 	//"os"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/madebywelch/anthropic-go/pkg/anthropic"
@@ -50,7 +51,8 @@ type GuestTokenResponse struct {
 	Response struct {
 		GuestToken string `json:"guest_token"`
 	}
-	RateLimit int
+	RateLimit       int
+	Expire int64
 }
 
 
@@ -261,6 +263,7 @@ func getGuestToken(BearerToken string) (*GuestTokenResponse, error) {
 		return nil, err
 	}
 	tmpGuestTokenResponse.RateLimit = 300
+	tmpGuestTokenResponse.Expire = (time.Now()).Unix() + 900
 	return &tmpGuestTokenResponse, err
 }
 
@@ -279,8 +282,12 @@ func getTweeterTimeline(twitterId string, count string, maxId string) (*TweetsRe
 	}
 	req.Header.Add("Authorization", BearerToken)
 
-	if (GuestTokenHandle == nil || GuestTokenHandle.RateLimit <= 1) {
+	
+	if (GuestTokenHandle == nil || GuestTokenHandle.RateLimit <= 1 || ((time.Now()).Unix() - GuestTokenHandle.Expire) >= 0) {
 		GuestTokenHandle, err = getGuestToken(BearerToken)
+		if err != nil {
+			return nil, err
+		}
 	}
 	req.Header.Add("x-guest-token", GuestTokenHandle.Response.GuestToken)
 	req.Header.Add("cookie", "gt=" + GuestTokenHandle.Response.GuestToken + ";")
