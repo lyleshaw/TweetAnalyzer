@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	//"os"
+	"os"
 	"strconv"
 	"time"
 
@@ -51,12 +51,12 @@ type GuestTokenResponse struct {
 	Response struct {
 		GuestToken string `json:"guest_token"`
 	}
-	RateLimit       int
-	Expire int64
+	RateLimit int
+	Expire    int64
 }
 
 
-var BearerToken = "Bearer AAAAAAAAAAAAAAAAAAAAAFQODgEAAAAAVHTp76lzh3rFzcHbmHVvQxYYpTw%3DckAlMINMjmCwxUcaXbAN4XqJVdgMJaHqNOFgPMK0zN1qLqLQCF"
+var BearerToken = os.Getenv("TWITTER_BEARER_TOKEN")
 var GuestTokenHandle *GuestTokenResponse
 
 func CompletionWithoutSessionWithStreamByClaude(client *anthropic.Client, prompt string, callBack anthropic.StreamCallback) error {
