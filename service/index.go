@@ -272,7 +272,7 @@ func getTweeterTimeline(twitterId string, count string, maxId string) (*TweetsRe
 	url := "https://api.twitter.com/1.1/search/universal.json?count=" + count + "&modules=status&result_type=recent&pc=false&ui_lang=en-US&cards_platform=Web-13&include_entities=1&include_user_entities=1&include_cards=1&send_error_codes=1&tweet_mode=extended&include_ext_alt_text=true&include_reply_count=true"
 	queryString := "&q=from%3A" + twitterId
 	if maxId != "" {
-		queryString += " max_id%3A" + maxId
+		queryString += "%20max_id%3A" + maxId
 	}
 	url += queryString
 	req, err := http.NewRequest("GET", url, nil)
@@ -324,6 +324,10 @@ func getTweetDetails(c *gin.Context) {
 	twitterId := c.Query("twitter_id")
 	count := c.Query("count")
 
+	if twitterId == "" {
+		c.JSON(http.StatusOK, gin.H{"error": "Wrong Params"})
+		return
+	}
 	if count == "" {
 		count = "100"
 	}
