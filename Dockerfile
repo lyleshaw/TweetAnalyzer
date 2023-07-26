@@ -12,7 +12,7 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN go build -o ./server .
+RUN go build -o ./server ./service/index.go
 
 FROM --platform=linux/amd64 alpine:latest
 

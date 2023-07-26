@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -55,8 +54,37 @@ type GuestTokenResponse struct {
 	Expire    int64
 }
 
+var (
+	AnthropicApiKey string
+	OpenAIApiKey    string
+	BearerToken     string
+	Port            string
+)
 
-var BearerToken = os.Getenv("TWITTER_BEARER_TOKEN")
+func Init() {
+	viper.SetConfigFile(".env")
+	_ = viper.ReadInConfig()
+	if err := viper.BindEnv("ANTHROPIC_API_KEY"); err != nil {
+		log.Fatal(err)
+	}
+	AnthropicApiKey = viper.GetString("ANTHROPIC_API_KEY")
+
+	if err := viper.BindEnv("OPENAI_A_KEY"); err != nil {
+		log.Fatal(err)
+	}
+	OpenAIApiKey = viper.GetString("OPENAI_A_KEY")
+
+	if err := viper.BindEnv("TWITTER_BEARER_TOKEN"); err != nil {
+		log.Fatal(err)
+	}
+	BearerToken = viper.GetString("TWITTER_BEARER_TOKEN")
+
+	if err := viper.BindEnv("PORT"); err != nil {
+		log.Fatal(err)
+	}
+	Port = viper.GetString("PORT")
+}
+
 var GuestTokenHandle *GuestTokenResponse
 
 func CompletionWithoutSessionWithStreamByClaude(client *anthropic.Client, prompt string, callBack anthropic.StreamCallback) error {
@@ -96,21 +124,17 @@ func CompletionWithoutSessionWithStreamByOpenAI(ctx context.Context, client *ope
 }
 
 func GetClaudeClient() (*anthropic.Client, error) {
-	viper.SetConfigFile(".env")
-	_ = viper.ReadInConfig()
-	if err := viper.BindEnv("ANTHROPIC_API_KEY"); err != nil {
-		log.Fatal(err)
-	}
-	AnthropicApiKey := viper.GetString("ANTHROPIC_API_KEY")
 	return anthropic.NewClient(AnthropicApiKey)
 }
+
 func GetOpenAIClient() (context.Context, *openai.Client, error) {
 	ctx := context.Background()
-	config := openai.DefaultConfig("sb-4d2ed1a575db4bd4e1df1c377252a6ae")
+	config := openai.DefaultConfig(OpenAIApiKey)
 	config.BaseURL = "https://api.openai-sb.com/v1"
 	fmt.Printf("base url: %s\n", config.BaseURL)
 	return ctx, openai.NewClientWithConfig(config), nil
 }
+
 func getTweetPrompt(response TweetsResponse) (string, string) {
 	prompt := ""
 	maxId := ""
@@ -166,6 +190,7 @@ func getStreamFromClaude(c *gin.Context, prompt string) {
 	client, _ := GetClaudeClient()
 	_ = CompletionWithoutSessionWithStreamByClaude(client, prompt, callback)
 }
+
 func getStreamFromOpenAI(c *gin.Context, prompt string) {
 	w := c.Writer
 	ctx, clientOpenai, err := GetOpenAIClient()
@@ -220,6 +245,7 @@ func getTweetAnalysis(c *gin.Context) {
 	}
 	fmt.Fprintf(w, "\n\n抓取数据中...本次抓取量%s条\n\n", count)
 	tweetResponse, err := getTweeterTimeline(twitterId, count, maxId)
+	fmt.Printf("%+v\n", tweetResponse)
 	if err != nil || len(tweetResponse.Modules) == 0 {
 		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
 		return
@@ -282,15 +308,16 @@ func getTweeterTimeline(twitterId string, count string, maxId string) (*TweetsRe
 	}
 	req.Header.Add("Authorization", BearerToken)
 
-	
-	if (GuestTokenHandle == nil || GuestTokenHandle.RateLimit <= 1 || ((time.Now()).Unix() - GuestTokenHandle.Expire) >= 0) {
+	fmt.Printf("BearerToken: %s\n", BearerToken)
+
+	if GuestTokenHandle == nil || GuestTokenHandle.RateLimit <= 1 || ((time.Now()).Unix()-GuestTokenHandle.Expire) >= 0 {
 		GuestTokenHandle, err = getGuestToken(BearerToken)
 		if err != nil {
 			return nil, err
 		}
 	}
 	req.Header.Add("x-guest-token", GuestTokenHandle.Response.GuestToken)
-	req.Header.Add("cookie", "gt=" + GuestTokenHandle.Response.GuestToken + ";")
+	req.Header.Add("cookie", "gt="+GuestTokenHandle.Response.GuestToken+";")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -333,6 +360,7 @@ func getTweetDetails(c *gin.Context) {
 	}
 
 	tweetResponse, err := getTweeterTimeline(twitterId, count, "")
+	fmt.Printf("%+v\n", tweetResponse)
 	if err != nil || len(tweetResponse.Modules) == 0 {
 		c.JSON(http.StatusOK, gin.H{"error": "No tweets found"})
 		return
@@ -366,14 +394,15 @@ func Cors() gin.HandlerFunc {
 }
 
 func main() {
+	Init()
 	es := eventsource.New(nil, nil)
 	defer es.Close()
 	r := gin.Default()
 	r.Use(Cors())
-	r.POST("/api/get_tweet_analysis", getTweetAnalysis)
+	r.GET("/api/get_tweet_analysis", getTweetAnalysis)
 	r.GET("/api/get_tweet_details", getTweetDetails)
 	r.GET("/ping", ping)
 	//port := ":" + os.Getenv("PORT")
-	port := ":8080"
-	r.Run(port)
+	//port := ":8080"
+	r.Run(Port)
 }
