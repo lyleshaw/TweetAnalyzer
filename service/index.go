@@ -402,7 +402,5 @@ func main() {
 	r.GET("/api/get_tweet_analysis", getTweetAnalysis)
 	r.GET("/api/get_tweet_details", getTweetDetails)
 	r.GET("/ping", ping)
-	//port := ":" + os.Getenv("PORT")
-	//port := ":8080"
-	r.Run(Port)
+	r.Run(":" + Port)
 }
